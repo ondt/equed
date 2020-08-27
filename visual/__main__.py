@@ -129,6 +129,15 @@ class Expression:
 		for child in self.children():
 			yield from child._bfs_children()
 	
+	def parentof(self, child: Expression) -> Expression:
+		assert isinstance(child, Expression)
+		for parent in self.bfs_children():
+			for c in parent.children():
+				if c is child:  # `child in parent.children()` uses `==` as well as `is`
+					return parent
+		
+		raise ValueError("TODO")  # todo
+	
 	def width(self):
 		lines = self.render().lines
 		assert 1 == len(set(len(x) for x in lines)), "All lines must have the same length"
