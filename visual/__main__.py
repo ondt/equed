@@ -329,12 +329,14 @@ class Text(Expression):
 				assert self.cursor.col >= 0
 		
 		if key == readchar.key.LEFT:
+			eprint("GOING LEFT---------------------")
 			if self.cursor.col > 0:
 				self.cursor = self.cursor.left(1)
 			else:
 				self.press_key(readchar.key.UP, root)
 		
 		if key == readchar.key.RIGHT:
+			eprint("GOING RIGHT--------------------")
 			if self.cursor.col < self.width():  # + one space at the end
 				self.cursor = self.cursor.right(1)
 			else:
@@ -415,25 +417,34 @@ class Row(Expression):
 		return RenderOutput(lines, colors, baseline, sum(r.width for r in rr), cursor)
 	
 	def simplify(self):
-		new = []
+		output = []
+		
+		# flatten rows
 		for child in self.children():
 			if isinstance(child, Row):
-				new.extend(child.items)
+				output.extend(child.items)
 			else:
-				new.append(child)
+				output.append(child)
 		
-		# todo: preserve cursor
-		# test = itertools.groupby(new,key=lambda x: isinstance(x,Text))
-		# both_group = [[Text(''.join(x.text for x in i))] if j else list(i) for j, i in test]
-		# res = list(itertools.chain(*both_group))
-		# new = res
+		# join adjacent texts
+		while True:
+			for idx, (a, b) in enumerate(zip(output, output[1:])):
+				if isinstance(a, Text) and isinstance(b, Text):
+					if b.cursor:
+						a.cursor = ScreenOffset(0, a.width()).right(b.cursor.col)
+					a.text = f"{a.text}{b.text}"
+					output.pop(idx + 1)
+					break
+			else:
+				break
 		
-		for child in new:
+		# continue the recursion
+		for child in output:
 			child.simplify()  # fractions only, of course
 		
-		# todo: insert space between adjacent fractions
+		# todo: insert space into the text between adjacent fractions
 		
-		self.items = new
+		self.items = output
 	
 	
 	def __str__(self):
@@ -565,7 +576,7 @@ expression = row(
 	fraction(
 		fraction(
 			text("444444444444"),
-			text("5555555555555", cursor=ScreenOffset(0, 1)),
+			row(text("999"), text("5555555555555", cursor=ScreenOffset(0, 1))),
 		),
 		text("666666666666"),
 	),
