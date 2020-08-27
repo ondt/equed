@@ -243,7 +243,7 @@ class Expression:
 		print("\033[2J\033[H" + "\n".join(output), end="", flush=True)
 	
 	
-	def press_key(self, key: str, root: Expression = None) -> bool:
+	def press_key(self, key: str, root: Expression = None, skip_empty: bool = False) -> bool:
 		"""Only Text can have a cursor (pass the key on by default)"""
 		root = root or self
 		for child in self.children():
@@ -285,7 +285,7 @@ class Text(Expression):
 		return RenderOutput([self.text], [self.colorize()], 0, len(self.text), self.cursor)
 	
 	
-	def press_key(self, key: str, root: Expression = None) -> bool:
+	def press_key(self, key: str, root: Expression = None, skip_empty: bool = True) -> bool:
 		assert root, "Text must always be inside row()."
 		
 		if not self.cursor:
@@ -348,16 +348,19 @@ class Text(Expression):
 			if self.cursor.col > 0:
 				self.cursor = self.cursor.left(1)
 			else:
-				self.press_key(readchar.key.UP, root)
+				self.press_key(readchar.key.UP, root, skip_empty=False)
 		
 		if key == readchar.key.RIGHT:
 			if self.cursor.col < self.width():  # + one space at the end
 				self.cursor = self.cursor.right(1)
 			else:
-				self.press_key(readchar.key.DOWN, root)
+				self.press_key(readchar.key.DOWN, root, skip_empty=False)
 		
 		if key == readchar.key.UP:
-			bfs_line = root.bfs_children()
+			bfs_line = [n for n in root.bfs_children() if isinstance(n, Text)]
+			if skip_empty:
+				bfs_line = [n for n in bfs_line if n.text]
+			
 			for expr in reversed(bfs_line[:obj_index(bfs_line, self)]):
 				if isinstance(expr, Text):  # where we can jump to
 					eprint("target:", expr.__class__.__name__, ansi.green(f"'{expr}'"))
@@ -368,7 +371,10 @@ class Text(Expression):
 				eprint(ansi.red("WARNING:"), "ran out of targets (DOWN)")
 		
 		if key == readchar.key.DOWN:
-			bfs_line = root.bfs_children()
+			bfs_line = [n for n in root.bfs_children() if isinstance(n, Text)]
+			if skip_empty:
+				bfs_line = [n for n in bfs_line if n.text]
+			
 			for expr in bfs_line[obj_index(bfs_line, self) + 1:]:
 				if isinstance(expr, Text):  # where we can jump to
 					eprint("target:", expr.__class__.__name__, ansi.green(f"'{expr}'"))
