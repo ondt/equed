@@ -368,11 +368,6 @@ class Row(Expression):
 			
 			if cur:
 				cursor = cur.down(baseline - b).right(w_so_far)
-				cursor2 = ScreenOffset(
-					row=cur.row + baseline - b,
-					col=cur.col + w_so_far,
-				)
-				assert cursor == cursor2
 			
 			w_so_far += w
 		
@@ -431,17 +426,9 @@ class Fraction(Expression):
 		cursor = None
 		if n.cursor:
 			cursor = n.cursor.right(align_space(n.width, w))
-		# cursor = ScreenOffset(
-		# 	row=n.cursor.row,
-		# 	col=n.cursor.col + align_space(n.width, w),
-		# )
 		
 		if d.cursor:
 			cursor = d.cursor.right(align_space(d.width, w)).down(baseline + 1)
-		# cursor = ScreenOffset(
-		# 	row=d.cursor.row + baseline + 1,
-		# 	col=d.cursor.col + align_space(d.width, w),
-		# )
 		
 		output = []
 		output.extend([str_align(l, w) for l in n.lines])
