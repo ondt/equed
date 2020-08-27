@@ -23,24 +23,26 @@ FRAC_PADDING = 1
 
 var = 10
 
-
-
-def terminal_echo(enabled: bool):
-	fd = sys.stdin.fileno()
-	iflag, oflag, cflag, lflag, ispeed, ospeed, cc = termios.tcgetattr(fd)
+try:
+	def terminal_echo(enabled: bool):
+		fd = sys.stdin.fileno()
+		iflag, oflag, cflag, lflag, ispeed, ospeed, cc = termios.tcgetattr(fd)
+		
+		if enabled:
+			lflag |= termios.ECHO
+		else:
+			lflag &= ~termios.ECHO
+		
+		new_attr = [iflag, oflag, cflag, lflag, ispeed, ospeed, cc]
+		termios.tcsetattr(fd, termios.TCSANOW, new_attr)
 	
-	if enabled:
-		lflag |= termios.ECHO
-	else:
-		lflag &= ~termios.ECHO
 	
-	new_attr = [iflag, oflag, cflag, lflag, ispeed, ospeed, cc]
-	termios.tcsetattr(fd, termios.TCSANOW, new_attr)
+	
+	atexit.register(terminal_echo, True)
+	terminal_echo(False)
 
-
-
-atexit.register(terminal_echo, True)
-terminal_echo(False)
+except:
+	pass
 
 
 
