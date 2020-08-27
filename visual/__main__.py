@@ -350,6 +350,21 @@ class Text(Expression):
 		if key == readchar.key.BACKSPACE:
 			if self.cursor.col == 0:
 				eprint(ansi.yellow("REMOVE SPECIAL"))  # todo: remove fraction, etc
+				
+				parent1 = root.parentof(self)
+				parent2 = root.parentof(parent1)
+				if isinstance(parent1, Row) and isinstance(parent2, Fraction):
+					if parent1 is parent2.numerator:
+						frac_contents = parent2.numerator.items + parent2.denominator.items
+						root.replace(parent2, row(*frac_contents))
+					else:  # fraction will not get deleted if backspace was pressed inside the denominator
+						self.press_key(readchar.key.LEFT, root)
+			
+			
+			
+			
+			
+			
 			else:
 				eprint(ansi.yellow(f"REMOVE: '{self.text[self.cursor.col - 1]}'"))
 				self.text: str = self.text[:self.cursor.col - 1] + self.text[self.cursor.col:]
