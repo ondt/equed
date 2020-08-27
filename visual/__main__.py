@@ -23,9 +23,11 @@ FRAC_PADDING = 1
 
 var = 10
 
-try:
-	def terminal_echo(enabled: bool):
-		fd = sys.stdin.fileno()
+
+
+def terminal_echo(enabled: bool):
+	fd = sys.stdin.fileno()
+	try:
 		iflag, oflag, cflag, lflag, ispeed, ospeed, cc = termios.tcgetattr(fd)
 		
 		if enabled:
@@ -33,13 +35,14 @@ try:
 		else:
 			lflag &= ~termios.ECHO
 		
-		new_attr = [iflag, oflag, cflag, lflag, ispeed, ospeed, cc]
-		termios.tcsetattr(fd, termios.TCSANOW, new_attr)
-	
-	
-	
-	atexit.register(terminal_echo, True)
-	terminal_echo(False)
+		termios.tcsetattr(fd, termios.TCSANOW, [iflag, oflag, cflag, lflag, ispeed, ospeed, cc])
+	except termios.error:
+		pass
+
+
+
+atexit.register(terminal_echo, True)
+terminal_echo(False)
 
 except:
 	pass
