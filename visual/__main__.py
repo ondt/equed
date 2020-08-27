@@ -5,7 +5,7 @@ import itertools
 import sys
 import termios
 from dataclasses import dataclass
-from typing import Iterable, Iterator, List, NamedTuple, Optional, TypeVar
+from typing import Iterable, Iterator, List, Optional, TypeVar
 
 import readchar
 
@@ -133,12 +133,20 @@ def align_space(expr_width: int, target_width: int):
 
 
 
-class RenderOutput(NamedTuple):
+@dataclass(frozen=True)
+class RenderOutput:
 	lines: List[str]
 	colors: List[List[str]]  # maybe list of tuples would be better?
 	baseline: int
 	width: int
 	cursor: Optional[ScreenOffset]
+	
+	def __post_init__(self):  # sanity check
+		assert 1 == len(set(len(x) for x in self.lines)), "All lines must have the same length"
+		assert 1 == len(set(len(x) for x in self.colors)), "All colors must have the same length"
+		assert len(self.lines) == len(self.colors)
+		assert self.baseline >= 0
+		assert self.width >= 0
 
 
 
