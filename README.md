@@ -1,9 +1,17 @@
-# `visual-python`
-Visual REPL for Python (2D formula renderer and editor with syntax highlighting) (to be used together with sympy et al.)
+# NAME
+`visual-python` - Visual REPL for Python (2D formula renderer and editor with syntax highlighting) (to be used
+ together with sympy et al.)
 
 
-# Features
-Status: proof of concept
+
+# DESCRIPTION
+`visual-python` is intended to be an universal terminal (text-based) formula editing tool. It generates `sympy
+`-compatible code ready to be `eval()`uated. 
+
+
+
+# FEATURES
+Status: **proof of concept**
 
 | Feature        | Codegen | Rendering | Inserting | Removing | Movement |
 | :------------- | :-----: | :-------: | :-------: | :------: | :------: |
@@ -14,4 +22,22 @@ Status: proof of concept
 | Sum, Lim, etc. |         |           |           |          |          |
 | Matrix         |         |           |           |          |          |
 | Invisible mult.| ?       | ?         | ?         | ?        | ?        |
+
+
+
+# SETTINGS
+- Syntax highlighting colors
+- Fraction padding
+
+
+
+# SEE ALSO
+- [python](https://docs.python.org/3/)
+- [sympy](https://docs.sympy.org/)
+- [formulador](https://github.com/stylewarning/formulador)
+
+
+
+# AUTHOR
+Ondrej Telka, https://ondrej.xyz/
 
