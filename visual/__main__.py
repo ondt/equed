@@ -253,12 +253,10 @@ class Text(Expression):
 	
 	
 	def press_key(self, key: str, root: Expression = None) -> bool:
+		assert root, "Text must always be inside row()."
+		
 		if not self.cursor:
 			return False  # we don't have the cursor, move on
-		
-		if not root and key in [readchar.key.UP, readchar.key.DOWN]:  # not root means self is the root
-			eprint(ansi.red("cancelling vertical movement"))  # todo: jump to start/end
-			return True  # keystroke accepted
 		
 		if key.isprintable():
 			eprint(ansi.yellow(f"INSERT: '{key}'"))
@@ -280,7 +278,7 @@ class Text(Expression):
 				if isinstance(parent, Row):
 					idx = obj_index(parent.children(), self)
 					parent.items.pop(idx)  # remove myself
-					parent.items.insert(idx, fraction(Text(before_cursor), Text(after_cursor, cursor=ScreenOffset(0, 0))))
+					parent.items.insert(idx, fraction(text(before_cursor), text(after_cursor, cursor=ScreenOffset(0, 0))))
 			
 			if before_cursor.endswith("sqrt("):
 				eprint(ansi.red("INSERTING SQUARE ROOT"))
@@ -351,8 +349,8 @@ class Text(Expression):
 
 
 class Row(Expression):
-	def __init__(self, *items: Expression):
-		self.items = list(items)
+	def __init__(self, items: List[Expression]):
+		self.items = items
 	
 	def children(self) -> List[Expression]:
 		return self.items
@@ -486,62 +484,66 @@ class Parenthesis(Expression):
 
 
 
+def row(*items: Expression):
+	return Row(list(items))
+
+
+
+def text(text: str = "", cursor: Optional[ScreenOffset] = None):
+	return row(Text(text, cursor))
+
+
+
 def fraction(numerator: Expression, denominator: Expression):
-	return Row(
-		Text(),  # jump target
+	assert isinstance(numerator, Row)
+	assert isinstance(denominator, Row)
+	return row(
+		text(),  # jump target
 		Fraction(
-			numerator=Row(numerator),
-			denominator=Row(denominator),
+			numerator=numerator,
+			denominator=denominator,
 		),
-		Text(),  # jump target
+		text(),  # jump target
 	)
 
 
 
 def parenthesis(expr: Expression):
-	return Row(
-		Text(),  # jump target
-		Parenthesis(
-			Row(expr),
-		),
-		Text(),  # jump target
+	assert isinstance(expr, Row)
+	return row(
+		text(),  # jump target
+		Parenthesis(expr),
+		text(),  # jump target
 	)
 
 
 
-object_with_cursor = Text("5555555555555")
-object_with_cursor.cursor = ScreenOffset(0, 1)
-
-expression = Row(
-	# Parenthesis(
-	fraction(
-		Text("1"),
-		Text("2"),
+expression = row(
+	parenthesis(
+		fraction(
+			text("1"),
+			text("2"),
+		),
 	),
-	# ),
-	Text(" + var + "),
+	text(" + var + "),
 	fraction(
 		fraction(
-			Text("44444"),
-			object_with_cursor,
+			text("444444444444"),
+			text("5555555555555", cursor=ScreenOffset(0, 1)),
 		),
-		Text("6"),
+		text("666666666666"),
 	),
 )
 
-# expression = Row(
-# 	Row(
-# 		Text(""),
-# 		Fraction(
-# 			Text("11111"),
-# 			object_with_cursor,
-# 		),
-# 		Text(""),
+# expression = row(
+# 	fraction(
+# 		text("11111"),
+# 		text("555", cursor=ScreenOffset(0, 1)),
 # 	),
-# 	Text(" + var"),
+# 	text(" + var"),
 # )
-# expression = object_with_cursor
 
+# expression = text("123456789", cursor=ScreenOffset(0, 1))
 
 while True:
 	expression.simplify()
