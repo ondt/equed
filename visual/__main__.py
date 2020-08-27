@@ -5,13 +5,14 @@ import itertools
 import sys
 import termios
 from dataclasses import dataclass
+from functools import lru_cache
 from itertools import zip_longest
 from typing import Iterable, Iterator, List, NamedTuple, Optional
 
 import readchar
+from profilehooks import profile
 
 from visual import ansi
-
 
 
 # config
@@ -113,6 +114,7 @@ class RenderOutput(NamedTuple):
 	lines: List[str]
 	colors: List[List[str]]  # maybe list of tuples would be better?
 	baseline: int
+	width: int
 	cursor: Optional[ScreenOffset]
 
 
@@ -234,7 +236,7 @@ class Text(Expression):
 		return output
 	
 	def render(self) -> RenderOutput:
-		return RenderOutput([self.text], [self.colorize()], 0, self.cursor)
+		return RenderOutput([self.text], [self.colorize()], 0, len(self.text), self.cursor)
 	
 	
 	def press_key(self, key: str, root: Expression = None) -> bool:
@@ -252,7 +254,6 @@ class Text(Expression):
 			
 			# todo: expander (run always for all texts?)
 			before_cursor = self.text[:self.cursor.col]
-			eprint(f"{before_cursor=}")
 			
 			if before_cursor.endswith("/"):
 				eprint(ansi.red("INSERTING FRACTION"))
@@ -344,8 +345,7 @@ class Row(Expression):
 		return self.items
 	
 	def render(self) -> RenderOutput:
-		widths = [x.width() for x in self.items]
-		lines, colors, baselines, cursors = zip(*[x.render() for x in self.items])
+		lines, colors, baselines, widths, cursors = zip(*[x.render() for x in self.items])
 		baseline = max(baselines)
 		
 		cursor = None
@@ -371,7 +371,7 @@ class Row(Expression):
 			output_lines.append("".join(l))
 			output_colors.append(list(itertools.chain(*c)))
 		
-		return RenderOutput(output_lines, output_colors, baseline, cursor)
+		return RenderOutput(output_lines, output_colors, baseline, sum(widths), cursor)
 	
 	def simplify(self):
 		new = []
@@ -406,9 +406,10 @@ class Fraction(Expression):
 		return [self.numerator, self.denominator]
 	
 	def render(self) -> RenderOutput:
-		w = 2 * FRAC_PADDING + max(self.numerator.width(), self.denominator.width())
 		n = self.numerator.render()
 		d = self.denominator.render()
+		w = 2 * FRAC_PADDING + max(n.width, d.width)
+		
 		baseline = len(n.lines)
 		assert 1 == len(set(len(x) for x in n.lines)), "All lines must have the same length"
 		assert 1 == len(set(len(x) for x in d.lines)), "All lines must have the same length"
@@ -437,7 +438,7 @@ class Fraction(Expression):
 		colors.append([FRAC_COLOR] * w)
 		colors.extend([list_align(c, w) for c in d.colors])
 		
-		return RenderOutput(output, colors, baseline, cursor)
+		return RenderOutput(output, colors, baseline, w, cursor)
 	
 	
 	def __str__(self):
@@ -453,13 +454,10 @@ class Parenthesis(Expression):
 		return [self.expr]
 	
 	def render(self) -> RenderOutput:
-		expr_lines, expr_colors, baseline, cursor = self.expr.render()
-		# width = max(len(l) for l in expr_lines)
-		width = self.expr.width()
-		# baseline = math.floor(len(expr_lines) / 2)
+		expr_lines, expr_colors, baseline, width, cursor = self.expr.render()
 		
 		if len(expr_lines) == 1:
-			return RenderOutput([f"({expr_lines[0]})"], [[PAREN_COLOR] + expr_colors[0] + [PAREN_COLOR]], 0, ScreenOffset(cursor.row, cursor.col + 1))
+			return RenderOutput([f"({expr_lines[0]})"], [[PAREN_COLOR] + expr_colors[0] + [PAREN_COLOR]], 0, width + 2, ScreenOffset(cursor.row, cursor.col + 1))
 		else:
 			output = []
 			colors = []
@@ -474,7 +472,7 @@ class Parenthesis(Expression):
 				output.append(f"{lparen}{line:^{width}}{rparen}")
 				colors.append([PAREN_COLOR] + list_align(color, width) + [PAREN_COLOR])
 			
-			return RenderOutput(output, colors, baseline, ScreenOffset(cursor.row, cursor.col + 1))
+			return RenderOutput(output, colors, baseline, width + 2, ScreenOffset(cursor.row, cursor.col + 1))
 	
 	def __str__(self):
 		return f"({self.expr})"
