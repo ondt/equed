@@ -209,9 +209,9 @@ class Expression:
 
 
 class Text(Expression):
-	def __init__(self, text: str):
+	def __init__(self, text: str, cursor: Optional[ScreenOffset] = None):
 		self.text: str = text
-		self.cursor: Optional[ScreenOffset] = None
+		self.cursor: Optional[ScreenOffset] = cursor
 	
 	def children(self) -> List[Expression]:
 		return []
@@ -244,15 +244,41 @@ class Text(Expression):
 		
 		if key.isprintable():
 			eprint(ansi.yellow(f"INSERT: '{key}'"))
-			self.text = self.text[:self.cursor.col] + key + self.text[self.cursor.col:]
+			self.text: str = self.text[:self.cursor.col] + key + self.text[self.cursor.col:]
 			self.cursor.col += 1
+			
+			# todo: expander (run always for all texts?)
+			before_cursor = self.text[:self.cursor.col]
+			eprint(f"{before_cursor=}")
+			
+			if before_cursor.endswith("/"):
+				eprint(ansi.red("INSERTING FRACTION"))
+				back = len("/")
+				before_cursor = before_cursor[:-back]
+				after_cursor = self.text[self.cursor.col:]
+				self.text = before_cursor + after_cursor
+				self.cursor.col -= back
+				
+				parent = root.parentof(self)
+				if isinstance(parent, Row):
+					idx = obj_index(parent.children(), self)
+					parent.items.pop(idx)  # remove myself
+					parent.items.insert(idx, fraction(Text(before_cursor), Text(after_cursor, cursor=ScreenOffset(0, 0))))
+			
+			if before_cursor.endswith("sqrt("):
+				eprint(ansi.red("INSERTING SQUARE ROOT"))
+				back = len("sqrt(")
+				self.text = self.text[:self.cursor.col - back] + self.text[self.cursor.col:]
+				self.cursor.col -= back
+				eprint(self.text)
+				assert False  # todo
 		
 		if key == readchar.key.BACKSPACE:
 			if self.cursor.col == 0:
 				eprint(ansi.yellow("SPECIAL ACTION"))  # todo: remove fraction, etc
 			else:
 				eprint(ansi.yellow(f"REMOVE: '{self.text[self.cursor.col - 1]}'"))
-				self.text = self.text[:self.cursor.col - 1] + self.text[self.cursor.col:]
+				self.text: str = self.text[:self.cursor.col - 1] + self.text[self.cursor.col:]
 				self.cursor.col -= 1
 				assert self.cursor.col >= 0
 		
