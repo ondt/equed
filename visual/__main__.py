@@ -5,12 +5,10 @@ import itertools
 import sys
 import termios
 from dataclasses import dataclass
-from functools import lru_cache
 from itertools import zip_longest
 from typing import Iterable, Iterator, List, NamedTuple, Optional
 
 import readchar
-from profilehooks import profile
 
 from visual import ansi
 
@@ -101,12 +99,11 @@ def list_align(ls: List[str], /, width: int) -> List[str]:
 
 
 
-def align_space(expr: Expression, width: int):
-	expr_width = expr.width()
+def align_space(expr_width: int, target_width: int):
 	if expr_width == 0:
-		return width // 2
+		return target_width // 2
 	else:
-		return f"{'x' * expr_width :^{width}}".index("x")
+		return f"{'x' * expr_width :^{target_width}}".index("x")
 
 
 
@@ -140,7 +137,7 @@ class Expression:
 		
 		raise ValueError("TODO")  # todo
 	
-	def width(self):
+	def width(self):  # SLOW!
 		lines = self.render().lines
 		assert 1 == len(set(len(x) for x in lines)), "All lines must have the same length"
 		return len(lines[0])
@@ -214,7 +211,7 @@ class Expression:
 
 
 class Text(Expression):
-	def __init__(self, text: str, cursor: Optional[ScreenOffset] = None):
+	def __init__(self, text: str = "", cursor: Optional[ScreenOffset] = None):
 		self.text: str = text
 		self.cursor: Optional[ScreenOffset] = cursor
 	
@@ -250,7 +247,7 @@ class Text(Expression):
 		if key.isprintable():
 			eprint(ansi.yellow(f"INSERT: '{key}'"))
 			self.text: str = self.text[:self.cursor.col] + key + self.text[self.cursor.col:]
-			self.cursor.col += 1
+			self.cursor = self.cursor.right(1)
 			
 			# todo: expander (run always for all texts?)
 			before_cursor = self.text[:self.cursor.col]
@@ -261,7 +258,7 @@ class Text(Expression):
 				before_cursor = before_cursor[:-back]
 				after_cursor = self.text[self.cursor.col:]
 				self.text = before_cursor + after_cursor
-				self.cursor.col -= back
+				self.cursor = self.cursor.left(back)
 				
 				parent = root.parentof(self)
 				if isinstance(parent, Row):
@@ -273,7 +270,7 @@ class Text(Expression):
 				eprint(ansi.red("INSERTING SQUARE ROOT"))
 				back = len("sqrt(")
 				self.text = self.text[:self.cursor.col - back] + self.text[self.cursor.col:]
-				self.cursor.col -= back
+				self.cursor = self.cursor.left(back)
 				eprint(self.text)
 				assert False  # todo
 		
@@ -283,18 +280,18 @@ class Text(Expression):
 			else:
 				eprint(ansi.yellow(f"REMOVE: '{self.text[self.cursor.col - 1]}'"))
 				self.text: str = self.text[:self.cursor.col - 1] + self.text[self.cursor.col:]
-				self.cursor.col -= 1
+				self.cursor = self.cursor.left(1)
 				assert self.cursor.col >= 0
 		
 		if key == readchar.key.LEFT:
 			if self.cursor.col > 0:
-				self.cursor.col -= 1
+				self.cursor = self.cursor.left(1)
 			else:
 				self.press_key(readchar.key.UP, root)
 		
 		if key == readchar.key.RIGHT:
 			if self.cursor.col < self.width():  # + one space at the end
-				self.cursor.col += 1
+				self.cursor = self.cursor.right(1)
 			else:
 				self.press_key(readchar.key.DOWN, root)
 		
@@ -356,10 +353,12 @@ class Row(Expression):
 				c.insert(0, list_align([""], w))  # baseline top padding
 			
 			if cur:
-				cursor = ScreenOffset(
+				cursor = cur.down(baseline - b).right(w_so_far)
+				cursor2 = ScreenOffset(
 					row=cur.row + baseline - b,
 					col=cur.col + w_so_far,
 				)
+				assert cursor == cursor2
 			
 			w_so_far += w
 		
@@ -417,16 +416,18 @@ class Fraction(Expression):
 		
 		cursor = None
 		if n.cursor:
-			cursor = ScreenOffset(
-				row=n.cursor.row,
-				col=n.cursor.col + align_space(self.numerator, w),
-			)
+			cursor = n.cursor.right(align_space(n.width, w))
+		# cursor = ScreenOffset(
+		# 	row=n.cursor.row,
+		# 	col=n.cursor.col + align_space(n.width, w),
+		# )
 		
 		if d.cursor:
-			cursor = ScreenOffset(
-				row=d.cursor.row + baseline + 1,
-				col=d.cursor.col + align_space(self.denominator, w),
-			)
+			cursor = d.cursor.right(align_space(d.width, w)).down(baseline + 1)
+		# cursor = ScreenOffset(
+		# 	row=d.cursor.row + baseline + 1,
+		# 	col=d.cursor.col + align_space(d.width, w),
+		# )
 		
 		output = []
 		output.extend([str_align(l, w) for l in n.lines])
@@ -456,8 +457,11 @@ class Parenthesis(Expression):
 	def render(self) -> RenderOutput:
 		expr_lines, expr_colors, baseline, width, cursor = self.expr.render()
 		
+		if cursor:
+			cursor = cursor.right(1)
+		
 		if len(expr_lines) == 1:
-			return RenderOutput([f"({expr_lines[0]})"], [[PAREN_COLOR] + expr_colors[0] + [PAREN_COLOR]], 0, width + 2, ScreenOffset(cursor.row, cursor.col + 1))
+			return RenderOutput([f"({expr_lines[0]})"], [[PAREN_COLOR] + expr_colors[0] + [PAREN_COLOR]], 0, width + 2, cursor)
 		else:
 			output = []
 			colors = []
@@ -472,7 +476,7 @@ class Parenthesis(Expression):
 				output.append(f"{lparen}{line:^{width}}{rparen}")
 				colors.append([PAREN_COLOR] + list_align(color, width) + [PAREN_COLOR])
 			
-			return RenderOutput(output, colors, baseline, width + 2, ScreenOffset(cursor.row, cursor.col + 1))
+			return RenderOutput(output, colors, baseline, width + 2, cursor)
 	
 	def __str__(self):
 		return f"({self.expr})"
@@ -481,12 +485,12 @@ class Parenthesis(Expression):
 
 def fraction(numerator: Expression, denominator: Expression):
 	return Row(
-		Text(""),  # jump target
+		Text(),  # jump target
 		Fraction(
 			numerator=Row(numerator),
 			denominator=Row(denominator),
 		),
-		Text(""),  # jump target
+		Text(),  # jump target
 	)
 
 
@@ -540,10 +544,8 @@ for ch in expression.bfs_children():
 	eprint(ch.__class__.__name__, f"'{ch!r}'" if isinstance(ch, Text) else "")
 
 while True:
-	# print("\033[2J\033[H", end="", flush=True)  # clear, home
 	expression.simplify()
 	expression.display()
-	# print(expression, end="", flush=True)
 	
 	key = readchar.readkey()
 	eprint()
