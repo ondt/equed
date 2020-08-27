@@ -355,26 +355,23 @@ class Text(Expression):
 				self.press_key(readchar.key.DOWN, root, skip_empty=False)
 		
 		if key == readchar.key.UP:
-			bfs_line = [n for n in root.bfs_children() if isinstance(n, Text)]
-			if skip_empty:
-				bfs_line = [n for n in bfs_line if n.text]
-			
+			bfs_line = root.bfs_children()
 			for expr in reversed(bfs_line[:obj_index(bfs_line, self)]):
 				if isinstance(expr, Text):  # where we can jump to
+					if skip_empty and not expr.text: continue
 					eprint("target:", expr.__class__.__name__, ansi.green(f"'{expr}'"))
 					self.cursor = None
+					# expr.cursor = ScreenOffset(0, 0)  # start of the text field
 					expr.cursor = ScreenOffset(0, expr.width())  # end of the text field
 					break
 			else:  # no break happened before
 				eprint(ansi.red("WARNING:"), "ran out of targets (DOWN)")
 		
 		if key == readchar.key.DOWN:
-			bfs_line = [n for n in root.bfs_children() if isinstance(n, Text)]
-			if skip_empty:
-				bfs_line = [n for n in bfs_line if n.text]
-			
+			bfs_line = root.bfs_children()
 			for expr in bfs_line[obj_index(bfs_line, self) + 1:]:
 				if isinstance(expr, Text):  # where we can jump to
+					if skip_empty and not expr.text: continue
 					eprint("target:", expr.__class__.__name__, ansi.green(f"'{expr}'"))
 					self.cursor = None
 					expr.cursor = ScreenOffset(0, 0)  # start of the text field
