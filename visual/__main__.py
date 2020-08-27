@@ -188,9 +188,7 @@ class Expression:
 	
 	
 	def width(self):  # SLOW!
-		lines = self.render().lines
-		assert 1 == len(set(len(x) for x in lines)), "All lines must have the same length"
-		return len(lines[0])
+		return len(self.render().lines[0])
 	
 	def render(self) -> RenderOutput:
 		raise NotImplementedError
@@ -476,8 +474,6 @@ class Fraction(Expression):
 		w = 2 * FRAC_PADDING + max(n.width, d.width)
 		
 		baseline = len(n.lines)
-		assert 1 == len(set(len(x) for x in n.lines)), "All lines must have the same length"
-		assert 1 == len(set(len(x) for x in d.lines)), "All lines must have the same length"
 		assert n.cursor is None or d.cursor is None, "At least one of cursors must be None"
 		
 		cursor = None
@@ -514,7 +510,6 @@ class Parenthesis(Expression):
 	
 	def render(self) -> RenderOutput:
 		r = self.expr.render()
-		assert 1 == len(set(len(x) for x in r.lines)), "All lines must have the same length"
 		
 		cursor = r.cursor.right(1) if r.cursor else None
 		
