@@ -485,7 +485,7 @@ while True:
 	eprint()
 	eprint(f"key pressed: {ansi.blue}0x{key.encode('utf8').hex()}{ansi.reset} ({list(readchar.key.__dict__.keys())[list(readchar.key.__dict__.values()).index(key)] if key in readchar.key.__dict__.values() else key})")
 	
-	if key in ["q", readchar.key.CTRL_C]:
+	if key == readchar.key.CTRL_C:
 		break
 	
 	expression.press_key(key)
