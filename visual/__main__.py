@@ -458,7 +458,9 @@ class Row(Expression):
 
 
 class Fraction(Expression):
-	def __init__(self, numerator: Expression, denominator: Expression):
+	def __init__(self, numerator: Row, denominator: Row):
+		assert isinstance(numerator, Row)
+		assert isinstance(denominator, Row)
 		self.numerator = numerator
 		self.denominator = denominator
 	
