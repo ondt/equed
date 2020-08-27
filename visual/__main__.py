@@ -147,6 +147,9 @@ class Expression:
 		raise NotImplementedError
 	
 	def simplify(self):
+		for child in self.children():
+			child.simplify()
+		
 		pass  # todo: (abstract) join adjacent strings, flatten rows, remove dummy rows, add empty strings before/after fraction, etc
 	
 	def display(self, cursor: bool = True, colormap: bool = True, code: bool = True):  # todo: curses
@@ -369,6 +372,25 @@ class Row(Expression):
 			output_colors.append(list(itertools.chain(*c)))
 		
 		return RenderOutput(output_lines, output_colors, baseline, cursor)
+	
+	def simplify(self):
+		new = []
+		for child in self.children():
+			if isinstance(child, Row):
+				new.extend(child.items)
+			else:
+				new.append(child)
+		
+		# test = itertools.groupby(new,key=lambda x: isinstance(x,Text))
+		# both_group = [[Text(''.join(x.text for x in i))] if j else list(i) for j, i in test]
+		# res = list(itertools.chain(*both_group))
+		# new = res
+		
+		for child in new:
+			child.simplify()
+		
+		self.items = new
+	
 	
 	def __str__(self):
 		return "".join([str(x) for x in self.items])
