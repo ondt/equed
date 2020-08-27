@@ -164,12 +164,26 @@ class Expression:
 	
 	def parentof(self, child: Expression) -> Expression:
 		assert isinstance(child, Expression)
+		
 		for parent in self.bfs_children():
 			for c in parent.children():
 				if c is child:  # `child in parent.children()` uses `==` as well as `is`
 					return parent
 		
 		raise ValueError("TODO")  # todo
+	
+	def replace(self, old: Expression, new: Expression) -> bool:
+		assert isinstance(old, Expression)
+		assert isinstance(new, Expression)
+		
+		for parent in self.bfs_children():
+			for child in parent.children():
+				if child is old:
+					assert isinstance(parent, Row)
+					parent.items[obj_index(parent.items, old)] = new
+					return True
+		
+		return False
 	
 	def neighbor_left(self, node: Expression) -> Optional[Expression]:
 		bfs_line = list(reversed(self.bfs_children()))
@@ -463,6 +477,7 @@ class Fraction(Expression):
 		assert isinstance(denominator, Row)
 		self.numerator = numerator
 		self.denominator = denominator
+	
 	
 	def children(self) -> List[Expression]:
 		return [self.numerator, self.denominator]
