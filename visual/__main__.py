@@ -171,6 +171,22 @@ class Expression:
 		
 		raise ValueError("TODO")  # todo
 	
+	def neighbor_left(self, node: Expression) -> Optional[Expression]:
+		bfs_line = list(reversed(self.bfs_children()))
+		for a, b in zip(bfs_line, bfs_line[1:]):
+			if a is node:
+				return b
+		return None
+	
+	
+	def neighbor_right(self, node: Expression) -> Optional[Expression]:
+		bfs_line = self.bfs_children()
+		for a, b in zip(bfs_line, bfs_line[1:]):
+			if a is node:
+				return b
+		return None
+	
+	
 	def width(self):  # SLOW!
 		lines = self.render().lines
 		assert 1 == len(set(len(x) for x in lines)), "All lines must have the same length"
