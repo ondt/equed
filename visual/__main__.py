@@ -54,7 +54,7 @@ def flatten(nested: List[List[T]]) -> List[T]:
 
 
 
-def obj_index(iterable: Iterable, obj: object) -> int:
+def obj_index(iterable: Iterable, obj: object) -> int:  # todo: use Expression.replace() instead
 	"""The same as `list.index()`, but compares the actual objects using `is` instead of their values using `==`."""
 	for index, item in enumerate(iterable):
 		if item is obj:
@@ -162,27 +162,23 @@ class Expression:
 		for child in self.children():
 			yield from child._bfs_children()
 	
-	def parentof(self, child: Expression) -> Expression:
+	def parentof(self, child: Expression) -> Optional[Expression]:
 		assert isinstance(child, Expression)
-		
 		for parent in self.bfs_children():
 			for c in parent.children():
 				if c is child:  # `child in parent.children()` uses `==` as well as `is`
 					return parent
-		
-		raise ValueError("TODO")  # todo
+		return None
 	
 	def replace(self, old: Expression, new: Expression) -> bool:
 		assert isinstance(old, Expression)
 		assert isinstance(new, Expression)
-		
 		for parent in self.bfs_children():
 			for child in parent.children():
 				if child is old:
 					assert isinstance(parent, Row)
 					parent.items[obj_index(parent.items, old)] = new
 					return True
-		
 		return False
 	
 	def neighbor_left(self, node: Expression) -> Optional[Expression]:
@@ -349,12 +345,12 @@ class Text(Expression):
 		
 		if key == readchar.key.BACKSPACE:
 			if self.cursor.col == 0:
-				eprint(ansi.yellow("REMOVE SPECIAL"))  # todo: remove fraction, etc
-				
+				# try to remove fraction
 				parent1 = root.parentof(self)
 				parent2 = root.parentof(parent1)
 				if isinstance(parent1, Row) and isinstance(parent2, Fraction):
 					if parent1 is parent2.numerator:
+						eprint(ansi.yellow("REMOVING FRACTION"))
 						frac_contents = parent2.numerator.items + parent2.denominator.items
 						root.replace(parent2, row(*frac_contents))
 					else:  # fraction will not get deleted if backspace was pressed inside the denominator
