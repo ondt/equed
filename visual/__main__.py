@@ -345,29 +345,22 @@ class Text(Expression):
 				assert self.cursor.col >= 0
 		
 		if key == readchar.key.LEFT:
-			eprint("GOING LEFT---------------------")
 			if self.cursor.col > 0:
 				self.cursor = self.cursor.left(1)
 			else:
 				self.press_key(readchar.key.UP, root)
 		
 		if key == readchar.key.RIGHT:
-			eprint("GOING RIGHT--------------------")
 			if self.cursor.col < self.width():  # + one space at the end
 				self.cursor = self.cursor.right(1)
 			else:
 				self.press_key(readchar.key.DOWN, root)
 		
 		if key == readchar.key.UP:
-			eprint("GOING UP-----------------------")
 			bfs_line = root.bfs_children()
-			
-			for ch in reversed(bfs_line[:obj_index(bfs_line, self)]):
-				eprint("---->", ch.__class__.__name__, ansi.green(f"'{ch}'") if isinstance(ch, Text) else "")
-			
 			for expr in reversed(bfs_line[:obj_index(bfs_line, self)]):
 				if isinstance(expr, Text):  # where we can jump to
-					eprint("selected:", expr.__class__.__name__, ansi.green(f"'{expr}'"))
+					eprint("target:", expr.__class__.__name__, ansi.green(f"'{expr}'"))
 					self.cursor = None
 					expr.cursor = ScreenOffset(0, expr.width())  # end of the text field
 					break
@@ -375,15 +368,10 @@ class Text(Expression):
 				eprint(ansi.red("WARNING:"), "ran out of targets (DOWN)")
 		
 		if key == readchar.key.DOWN:
-			eprint("GOING DOWN---------------------")
 			bfs_line = root.bfs_children()
-			
-			for ch in bfs_line[obj_index(bfs_line, self) + 1:]:
-				eprint("---->", ch.__class__.__name__, ansi.green(f"'{ch}'") if isinstance(ch, Text) else "")
-			
 			for expr in bfs_line[obj_index(bfs_line, self) + 1:]:
 				if isinstance(expr, Text):  # where we can jump to
-					eprint("selected:", expr.__class__.__name__, ansi.green(f"'{expr}'"))
+					eprint("target:", expr.__class__.__name__, ansi.green(f"'{expr}'"))
 					self.cursor = None
 					expr.cursor = ScreenOffset(0, 0)  # start of the text field
 					break
