@@ -491,7 +491,18 @@ def fraction(numerator: Expression, denominator: Expression):
 
 
 
-object_with_cursor = Text("555")
+def parenthesis(expr: Expression):
+	return Row(
+		Text(),  # jump target
+		Parenthesis(
+			Row(expr),
+		),
+		Text(),  # jump target
+	)
+
+
+
+object_with_cursor = Text("5555555555555")
 object_with_cursor.cursor = ScreenOffset(0, 1)
 
 expression = Row(
