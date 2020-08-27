@@ -71,7 +71,7 @@ def eprint(*args, **kwargs):
 
 
 @dataclass(frozen=True)
-class ScreenOffset:  # todo: something like "the last one" or so
+class ScreenOffset:  # todo: a way to put the cursor at the end, without knowing the width (performance)
 	row: int
 	col: int
 	
@@ -254,6 +254,7 @@ class Text(Expression):
 			else:
 				output.append("")
 		
+		# todo: context-aware highlighting (string before paren is function, etc)
 		return output
 	
 	def render(self) -> RenderOutput:
@@ -288,17 +289,17 @@ class Text(Expression):
 					parent.items.pop(idx)  # remove myself
 					parent.items.insert(idx, fraction(text(before_cursor), text(after_cursor, cursor=ScreenOffset(0, 0))))
 			
-			if before_cursor.endswith("sqrt("):
+			if before_cursor.endswith("sqrt("):  # todo
 				eprint(ansi.red("INSERTING SQUARE ROOT"))
 				back = len("sqrt(")
 				self.text = self.text[:self.cursor.col - back] + self.text[self.cursor.col:]
 				self.cursor = self.cursor.left(back)
 				eprint(self.text)
-				assert False  # todo
+				assert False
 		
 		if key == readchar.key.BACKSPACE:
 			if self.cursor.col == 0:
-				eprint(ansi.yellow("SPECIAL ACTION"))  # todo: remove fraction, etc
+				eprint(ansi.yellow("REMOVE SPECIAL"))  # todo: remove fraction, etc
 			else:
 				eprint(ansi.yellow(f"REMOVE: '{self.text[self.cursor.col - 1]}'"))
 				self.text: str = self.text[:self.cursor.col - 1] + self.text[self.cursor.col:]
@@ -399,6 +400,7 @@ class Row(Expression):
 			else:
 				new.append(child)
 		
+		# todo: preserve cursor
 		# test = itertools.groupby(new,key=lambda x: isinstance(x,Text))
 		# both_group = [[Text(''.join(x.text for x in i))] if j else list(i) for j, i in test]
 		# res = list(itertools.chain(*both_group))
