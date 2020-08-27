@@ -280,7 +280,7 @@ class Text(Expression):
 			self.text: str = self.text[:self.cursor.col] + key + self.text[self.cursor.col:]
 			self.cursor = self.cursor.right(1)
 			
-			# todo: expander (run always for all texts?)
+			# todo: expanders (run always for all texts?)
 			before_cursor = self.text[:self.cursor.col]
 			
 			if before_cursor.endswith("/"):
@@ -296,6 +296,20 @@ class Text(Expression):
 					idx = obj_index(parent.children(), self)
 					parent.items.pop(idx)  # remove myself
 					parent.items.insert(idx, fraction(text(before_cursor), text(after_cursor, cursor=ScreenOffset(0, 0))))
+			
+			if before_cursor.endswith("("):
+				eprint(ansi.red("INSERTING PARENTHESIS"))
+				back = len("(")
+				before_cursor = before_cursor[:-back]
+				after_cursor = self.text[self.cursor.col:]
+				self.text = before_cursor + after_cursor
+				self.cursor = self.cursor.left(back)
+				
+				parent = root.parentof(self)
+				if isinstance(parent, Row):
+					idx = obj_index(parent.children(), self)
+					parent.items.pop(idx)  # remove myself
+					parent.items.insert(idx, row(text(before_cursor), parenthesis(text(after_cursor, cursor=ScreenOffset(0, 0)))))  # todo: take more objects, maybe? (desmos)
 			
 			if before_cursor.endswith("sqrt("):  # todo
 				eprint(ansi.red("INSERTING SQUARE ROOT"))
