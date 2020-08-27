@@ -5,8 +5,7 @@ import itertools
 import sys
 import termios
 from dataclasses import dataclass
-from itertools import zip_longest
-from typing import Iterable, Iterator, List, NamedTuple, Optional
+from typing import Iterable, Iterator, List, NamedTuple, Optional, TypeVar
 
 import readchar
 
@@ -17,6 +16,7 @@ from visual import ansi
 NUM_COLOR = ansi.red
 TXT_COLOR = ansi.yellow | ansi.italic
 OP_COLOR = ansi.green
+FUNC_COLOR = ansi.blue
 FRAC_COLOR = ansi.reset
 PAREN_COLOR = ansi.reset
 FRAC_PADDING = 1
@@ -44,8 +44,13 @@ def terminal_echo(enabled: bool):
 atexit.register(terminal_echo, True)
 terminal_echo(False)
 
-except:
-	pass
+T = TypeVar("T")
+
+
+
+def flatten(nested: List[List[T]]) -> List[T]:
+	"""Non-recursive list flattener."""
+	return list(itertools.chain.from_iterable(nested))
 
 
 
@@ -359,30 +364,32 @@ class Row(Expression):
 		return self.items
 	
 	def render(self) -> RenderOutput:
-		lines, colors, baselines, widths, cursors = zip(*[x.render() for x in self.items])
-		baseline = max(baselines)
+		rr = [x.render() for x in self.items]
+		baseline = max(r.baseline for r in rr)
 		
-		cursor = None
-		w_so_far = 0
-		for (l, c, b, w, cur) in zip(lines, colors, baselines, widths, cursors):
-			for _ in range(baseline - b):
-				l.insert(0, " " * w)  # baseline top padding
-				c.insert(0, list_align([""], w))  # baseline top padding
-			
-			if cur:
-				cursor = cur.down(baseline - b).right(w_so_far)
-			
-			w_so_far += w
+		for r in rr:
+			for _ in range(baseline - r.baseline):  # todo: extend
+				r.lines.insert(0, " " * r.width)  # baseline top padding
+				r.colors.insert(0, list_align([""], r.width))  # baseline top padding
 		
-		output_lines = []
-		output_colors = []
-		for index, (l, c) in enumerate(zip(zip_longest(*lines, fillvalue=""), zip_longest(*colors, fillvalue=[]))):
-			l = [str_align(x, w) for x, w in zip(l, widths)]
-			c = [list_align(x, w) for x, w in zip(c, widths)]
-			output_lines.append("".join(l))
-			output_colors.append(list(itertools.chain(*c)))
+		width_so_far = 0
+		for r in rr:
+			if r.cursor:
+				cursor = r.cursor.down(baseline - r.baseline).right(width_so_far)
+				break
+			width_so_far += r.width
+		else:  # no break happened before
+			cursor = None
 		
-		return RenderOutput(output_lines, output_colors, baseline, sum(widths), cursor)
+		lines = []
+		colors = []
+		for line_index in range(max(len(r.lines) for r in rr)):
+			l = [str_align(r.lines[line_index] if len(r.lines) > line_index else "", r.width) for r in rr]
+			c = [list_align(r.colors[line_index] if len(r.colors) > line_index else "", r.width) for r in rr]
+			lines.append("".join(l))
+			colors.append(flatten(c))
+		
+		return RenderOutput(lines, colors, baseline, sum(r.width for r in rr), cursor)
 	
 	def simplify(self):
 		new = []
@@ -459,28 +466,28 @@ class Parenthesis(Expression):
 		return [self.expr]
 	
 	def render(self) -> RenderOutput:
-		expr_lines, expr_colors, baseline, width, cursor = self.expr.render()
+		r = self.expr.render()
+		assert 1 == len(set(len(x) for x in r.lines)), "All lines must have the same length"
 		
-		if cursor:
-			cursor = cursor.right(1)
+		cursor = r.cursor.right(1) if r.cursor else None
 		
-		if len(expr_lines) == 1:
-			return RenderOutput([f"({expr_lines[0]})"], [[PAREN_COLOR] + expr_colors[0] + [PAREN_COLOR]], 0, width + 2, cursor)
+		if len(r.lines) == 1:
+			return RenderOutput([f"({r.lines[0]})"], [[PAREN_COLOR] + r.colors[0] + [PAREN_COLOR]], 0, r.width + 2, cursor)
 		else:
 			output = []
 			colors = []
-			for index, (line, color) in enumerate(zip(expr_lines, expr_colors)):
+			for index, (line, color) in enumerate(zip(r.lines, r.colors)):
 				if index == 0:
 					lparen, rparen = "⎛", "⎞"
-				elif index < len(expr_lines) - 1:
+				elif index < len(r.lines) - 1:
 					lparen, rparen = "⎜", "⎟"
 				else:
 					lparen, rparen = "⎝", "⎠"
 				
-				output.append(f"{lparen}{line:^{width}}{rparen}")
-				colors.append([PAREN_COLOR] + list_align(color, width) + [PAREN_COLOR])
+				output.append(f"{lparen}{line}{rparen}")
+				colors.append([PAREN_COLOR] + list_align(color, r.width) + [PAREN_COLOR])
 			
-			return RenderOutput(output, colors, baseline, width + 2, cursor)
+			return RenderOutput(output, colors, r.baseline, r.width + 2, cursor)
 	
 	def __str__(self):
 		return f"({self.expr})"
@@ -553,8 +560,7 @@ while True:
 	expression.display()
 	
 	key = readchar.readkey()
-	eprint()
-	eprint(f"key pressed: {ansi.blue}0x{key.encode('utf8').hex()}{ansi.reset} ({list(readchar.key.__dict__.keys())[list(readchar.key.__dict__.values()).index(key)] if key in readchar.key.__dict__.values() else key})")
+	eprint(f"\nkey pressed: {ansi.blue}0x{key.encode('utf8').hex()}{ansi.reset} ({list(readchar.key.__dict__.keys())[list(readchar.key.__dict__.values()).index(key)] if key in readchar.key.__dict__.values() else key})")
 	
 	if key == readchar.key.CTRL_C:
 		break
