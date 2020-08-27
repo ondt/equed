@@ -60,10 +60,26 @@ def eprint(*args, **kwargs):
 
 
 
-@dataclass
-class ScreenOffset:
+@dataclass(frozen=True)
+class ScreenOffset:  # todo: something like "the last one" or so
 	row: int
 	col: int
+	
+	def __post_init__(self):
+		assert self.row >= 0
+		assert self.col >= 0
+	
+	def left(self, distance: int):
+		return ScreenOffset(self.row, self.col - distance)
+	
+	def right(self, distance: int):
+		return ScreenOffset(self.row, self.col + distance)
+	
+	def up(self, distance: int):
+		return ScreenOffset(self.row - distance, self.col)
+	
+	def down(self, distance: int):
+		return ScreenOffset(self.row + distance, self.col)
 
 
 
@@ -148,8 +164,6 @@ class Expression:
 	def simplify(self):
 		for child in self.children():
 			child.simplify()
-		
-		pass  # todo: (abstract) join adjacent strings, flatten rows, remove dummy rows, add empty strings before/after fraction, etc
 	
 	def display(self, cursor: bool = True, colormap: bool = True, code: bool = True):  # todo: curses
 		"""Render the expression onto the screen"""
@@ -386,7 +400,7 @@ class Row(Expression):
 		# new = res
 		
 		for child in new:
-			child.simplify()
+			child.simplify()  # fractions only, of course
 		
 		self.items = new
 	
@@ -539,9 +553,6 @@ expression = Row(
 # )
 # expression = object_with_cursor
 
-
-for ch in expression.bfs_children():
-	eprint(ch.__class__.__name__, f"'{ch!r}'" if isinstance(ch, Text) else "")
 
 while True:
 	expression.simplify()
