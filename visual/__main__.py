@@ -550,17 +550,17 @@ class Parenthesis(Expression):
 
 
 
-def row(*items: Expression):
+def row(*items: Expression) -> Row:
 	return Row(list(items))
 
 
 
-def text(text: str = "", cursor: Optional[ScreenOffset] = None):
-	return row(Text(text, cursor))
+def text(txt: str = "", cursor: Optional[ScreenOffset] = None) -> Row:
+	return row(Text(txt, cursor))
 
 
 
-def fraction(numerator: Expression, denominator: Expression):
+def fraction(numerator: Row, denominator: Row) -> Row:
 	assert isinstance(numerator, Row)
 	assert isinstance(denominator, Row)
 	return row(
@@ -574,7 +574,7 @@ def fraction(numerator: Expression, denominator: Expression):
 
 
 
-def parenthesis(expr: Expression):
+def parenthesis(expr: Row) -> Row:
 	assert isinstance(expr, Row)
 	return row(
 		text(),  # jump target
@@ -591,7 +591,7 @@ expression = row(
 			text("2"),
 		),
 	),
-	text(" + var + "),
+	text(" + var * "),
 	fraction(
 		fraction(
 			text("444444444444"),
