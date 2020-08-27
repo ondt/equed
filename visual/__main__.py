@@ -409,6 +409,8 @@ class Row(Expression):
 		for child in new:
 			child.simplify()  # fractions only, of course
 		
+		# todo: insert space between adjacent fractions
+		
 		self.items = new
 	
 	
