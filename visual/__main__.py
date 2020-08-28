@@ -25,8 +25,8 @@ var = 10
 
 
 def terminal_echo(enabled: bool):
-	fd = sys.stdin.fileno()
 	try:
+		fd = sys.stdin.fileno()
 		iflag, oflag, cflag, lflag, ispeed, ospeed, cc = termios.tcgetattr(fd)
 		
 		if enabled:
@@ -36,6 +36,8 @@ def terminal_echo(enabled: bool):
 		
 		termios.tcsetattr(fd, termios.TCSANOW, [iflag, oflag, cflag, lflag, ispeed, ospeed, cc])
 	except termios.error:
+		pass
+	except ValueError:
 		pass
 
 
