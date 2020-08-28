@@ -307,48 +307,22 @@ class Text(Expression):
 			return False  # we don't have the cursor, move on
 		
 		if key.isprintable():
-			eprint(ansi.yellow(f"INSERT: '{key}'"))
-			self.text: str = self.text[:self.cursor.col] + key + self.text[self.cursor.col:]
-			self.cursor = self.cursor.right(1)
-			
 			# todo: expanders (run always for all texts?)
-			before_cursor = self.text[:self.cursor.col]
+			if key == "/":
+				eprint(ansi.yellow("INSERTING FRACTION"))
+				before_cursor, after_cursor = self.text[:self.cursor.col], self.text[self.cursor.col:]
+				root.replace(self, fraction(text(before_cursor), text(after_cursor, cursor=ScreenOffset(0, 0))))
 			
-			if before_cursor.endswith("/"):
-				eprint(ansi.red("INSERTING FRACTION"))
-				back = len("/")
-				before_cursor = before_cursor[:-back]
-				after_cursor = self.text[self.cursor.col:]
-				self.text = before_cursor + after_cursor
-				self.cursor = self.cursor.left(back)
-				
+			elif key in ["(", ")"]:
+				eprint(ansi.yellow("INSERTING PARENTHESIS"))
 				parent = root.parentof(self)
-				if isinstance(parent, Row):
-					idx = obj_index(parent.children(), self)
-					parent.items.pop(idx)  # remove myself
-					parent.items.insert(idx, fraction(text(before_cursor), text(after_cursor, cursor=ScreenOffset(0, 0))))
+				assert isinstance(parent, Row)
+				before_cursor, after_cursor = self.text[:self.cursor.col], self.text[self.cursor.col:]
 			
-			if before_cursor.endswith("("):
-				eprint(ansi.red("INSERTING PARENTHESIS"))
-				back = len("(")
-				before_cursor = before_cursor[:-back]
-				after_cursor = self.text[self.cursor.col:]
-				self.text = before_cursor + after_cursor
-				self.cursor = self.cursor.left(back)
-				
-				parent = root.parentof(self)
-				if isinstance(parent, Row):
-					idx = obj_index(parent.children(), self)
-					parent.items.pop(idx)  # remove myself
-					parent.items.insert(idx, row(text(before_cursor), parenthesis(text(after_cursor, cursor=ScreenOffset(0, 0)))))  # todo: take more objects, maybe? (desmos)
-			
-			if before_cursor.endswith("sqrt("):  # todo
-				eprint(ansi.red("INSERTING SQUARE ROOT"))
-				back = len("sqrt(")
-				self.text = self.text[:self.cursor.col - back] + self.text[self.cursor.col:]
-				self.cursor = self.cursor.left(back)
-				eprint(self.text)
-				assert False
+			else:
+				eprint(ansi.yellow(f"INSERTING TEXT: '{key}'"))
+				self.text: str = self.text[:self.cursor.col] + key + self.text[self.cursor.col:]
+				self.cursor = self.cursor.right(1)
 		
 		if key == readchar.key.BACKSPACE:
 			if self.cursor.col == 0:
@@ -630,6 +604,7 @@ expression = row(
 # expression = text("123456789", cursor=ScreenOffset(0, 1))
 
 while True:
+	# expression.simplify()
 	expression.simplify()
 	expression.display()
 	
