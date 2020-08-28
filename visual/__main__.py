@@ -503,7 +503,7 @@ class Fraction(Expression):
 	
 	
 	def __str__(self):
-		return f"(({self.numerator}) / ({self.denominator}))"
+		return f"(({str(self.numerator) or 'None'}) / ({str(self.denominator) or 'None'}))"
 
 
 
