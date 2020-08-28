@@ -9,8 +9,7 @@ from typing import Iterable, Iterator, List, Optional, TypeVar
 
 import readchar
 
-from visual import ansi
-
+from visual import ansi, utils
 
 # config
 NUM_COLOR = ansi.red
@@ -233,11 +232,7 @@ class Expression:
 				output.append("".join(line))
 		
 		if code:
-			try:
-				eval_result = eval(str(self))
-			except Exception as e:
-				eval_result = str(e)
-			
+			eval_result = utils.run(str(self))
 			output.append("")
 			output.append(f">>> {self}")
 			output.append(f"{eval_result}")
