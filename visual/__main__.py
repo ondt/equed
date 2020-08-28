@@ -182,6 +182,16 @@ class Expression:
 					return True
 		return False
 	
+	def delete(self, old: Expression) -> bool:
+		assert isinstance(old, Expression)
+		for parent in self.bfs_children():
+			for child in parent.children():
+				if child is old:
+					assert isinstance(parent, Row)
+					parent.items.pop(obj_index(parent.items, old))
+					return True
+		return False
+	
 	def neighbor_left(self, node: Expression) -> Optional[Expression]:
 		bfs_line = list(reversed(self.bfs_children()))
 		for a, b in zip(bfs_line, bfs_line[1:]):
