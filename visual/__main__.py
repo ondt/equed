@@ -349,11 +349,11 @@ class Text(Expression):
 				parent1 = root.parentof(self)
 				parent2 = root.parentof(parent1)
 				if isinstance(parent1, Row) and isinstance(parent2, Fraction):
-					if parent1 is parent2.numerator:
+					if parent1 is parent2.denominator:
 						eprint(ansi.yellow("REMOVING FRACTION"))
 						frac_contents = parent2.numerator.items + parent2.denominator.items
 						root.replace(parent2, row(*frac_contents))
-					else:  # fraction will not get deleted if backspace was pressed inside the denominator
+					else:  # fraction will not get deleted if backspace was pressed inside the numerator
 						self.press_key(readchar.key.LEFT, root)
 			
 			
