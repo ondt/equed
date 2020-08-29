@@ -301,27 +301,34 @@ class Text(Expression):
 	
 	
 	def press_key(self, key: str, root: Expression = None, skip_empty: bool = True) -> bool:
-		assert root, "Text must always be inside row()."
+		assert root is not None, "Text must always be inside a Row."
 		
 		if not self.cursor:
 			return False  # we don't have the cursor, move on
 		
 		if key.isprintable():
+			before_cursor, after_cursor = self.text[:self.cursor.col], self.text[self.cursor.col:]
+			sequence = before_cursor + key
+			
 			# todo: expanders (run always for all texts?)
 			if key == "/":
 				eprint(ansi.yellow("INSERTING FRACTION"))
-				before_cursor, after_cursor = self.text[:self.cursor.col], self.text[self.cursor.col:]
 				root.replace(self, fraction(text(before_cursor), text(after_cursor, cursor=ScreenOffset(0, 0))))
 			
 			elif key in ["(", ")"]:
 				eprint(ansi.yellow("INSERTING PARENTHESIS"))
 				parent = root.parentof(self)
 				assert isinstance(parent, Row)
-				before_cursor, after_cursor = self.text[:self.cursor.col], self.text[self.cursor.col:]
+				# todo
+				pass
+			
+			elif sequence.endswith("\\frac"):
+				# todo
+				pass
 			
 			else:
 				eprint(ansi.yellow(f"INSERTING TEXT: '{key}'"))
-				self.text: str = self.text[:self.cursor.col] + key + self.text[self.cursor.col:]
+				self.text: str = before_cursor + key + after_cursor
 				self.cursor = self.cursor.right(1)
 		
 		if key == readchar.key.BACKSPACE:
