@@ -312,12 +312,19 @@ class Text(Expression):
 				eprint(ansi.yellow("INSERTING FRACTION"))
 				root.replace(self, fraction(text(before_cursor), text(after_cursor, cursor=ScreenOffset(0, 0))))
 			
-			elif key in ["(", ")"]:
-				eprint(ansi.yellow("INSERTING PARENTHESIS"))
+			elif key == "(":
+				eprint(ansi.yellow("INSERTING LPAREN"))
 				parent = root.parentof(self)
 				assert isinstance(parent, Row)
-				# todo
-				pass
+				root.replace(self, row(text(before_cursor), lparen(), text(after_cursor, cursor=ScreenOffset(0, 0))))
+			
+			
+			elif key == ")":
+				eprint(ansi.yellow("INSERTING RPAREN"))
+				parent = root.parentof(self)
+				assert isinstance(parent, Row)
+				root.replace(self, row(text(before_cursor), rparen(), text(after_cursor, cursor=ScreenOffset(0, 0))))
+			
 			
 			elif sequence.endswith("\\frac"):
 				# todo
@@ -519,6 +526,46 @@ class Fraction(Expression):
 
 
 
+class Paren(Expression):
+	def __init__(self):
+		self.height = 3
+		self.baseline = 1
+	
+	def children(self) -> List[Expression]:
+		raise NotImplementedError
+	
+	def render(self) -> RenderOutput:
+		raise NotImplementedError
+	
+	def __str__(self):
+		raise NotImplementedError
+
+
+
+class LParen(Paren):
+	def children(self) -> List[Expression]:
+		return []
+	
+	def render(self) -> RenderOutput:
+		return RenderOutput(["(", "(", "("], [[PAREN_COLOR], [PAREN_COLOR], [PAREN_COLOR]], self.baseline, width=1, cursor=None)
+	
+	def __str__(self):
+		return "("
+
+
+
+class RParen(Paren):
+	def children(self) -> List[Expression]:
+		return []
+	
+	def render(self) -> RenderOutput:
+		return RenderOutput([")", ")", ")"], [[PAREN_COLOR], [PAREN_COLOR], [PAREN_COLOR]], self.baseline, width=1, cursor=None)
+	
+	def __str__(self):
+		return ")"
+
+
+
 class Parenthesis(Expression):
 	def __init__(self, expr: Expression):
 		self.expr: Expression = expr
@@ -561,6 +608,16 @@ def row(*items: Expression) -> Row:
 
 def text(txt: str = "", cursor: Optional[ScreenOffset] = None) -> Row:
 	return row(Text(txt, cursor))
+
+
+
+def lparen() -> Row:
+	return row(LParen())
+
+
+
+def rparen() -> Row:
+	return row(RParen())
 
 
 

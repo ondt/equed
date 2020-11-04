@@ -26,7 +26,7 @@ Status: **proof of concept**
 | :------------- | :-----: | :-------: | :-------: | :------: | :------: |
 | Text           | yes     | yes       | yes       | yes      | yes      |
 | Fraction       | yes     | yes       | yes       | yes      | sort of  |
-| Parenthesis    | yes     | yes       | sort of   |          | yes      |
+| Parenthesis    | yes     |           | yes       |          | yes      |
 | Power          |         |           |           |          |          |
 | Square root    |         |           |           |          |          |
 | Matrix         |         |           |           |          |          |
