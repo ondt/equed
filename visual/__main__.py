@@ -12,6 +12,7 @@ import readchar
 from visual import ansi, utils
 
 # config
+COMPAT = True  # compatibility with maple and desmos
 NUM_COLOR = ansi.red
 TXT_COLOR = ansi.yellow | ansi.italic
 OP_COLOR = ansi.green
