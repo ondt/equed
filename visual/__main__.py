@@ -192,21 +192,17 @@ class Expression:
 					return True
 		return False
 	
-	def neighbor_left(self, node: Expression) -> Optional[Expression]:
-		bfs_line = list(reversed(self.bfs_children()))
-		for a, b in zip(bfs_line, bfs_line[1:]):
-			if a is node:
-				return b
-		return None
+	def neighbor_left(self, node: Expression, skip: int = 1) -> Optional[Expression]:
+		parent = self.parentof(node)
+		assert isinstance(parent, Row)
+		index = obj_index(parent.items, node) - skip
+		return parent.items[index] if index in range(len(parent.items)) else None
 	
-	
-	def neighbor_right(self, node: Expression) -> Optional[Expression]:
-		bfs_line = self.bfs_children()
-		for a, b in zip(bfs_line, bfs_line[1:]):
-			if a is node:
-				return b
-		return None
-	
+	def neighbor_right(self, node: Expression, skip: int = 1) -> Optional[Expression]:
+		parent = self.parentof(node)
+		assert isinstance(parent, Row)
+		index = obj_index(parent.items, node) + skip
+		return parent.items[index] if index in range(len(parent.items)) else None
 	
 	def width(self):  # SLOW!
 		return len(self.render().lines[0])
