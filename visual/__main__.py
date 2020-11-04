@@ -362,7 +362,15 @@ class Text(Expression):
 			if self.cursor.col < self.width():  # + one space at the end
 				self.cursor = self.cursor.right(1)
 			else:
-				self.press_key(readchar.key.DOWN, root, skip_empty=False)
+				if COMPAT:  # maple, desmos: RIGHT inside numerator causes the cursor to jump right after the fraction
+					parent = root.parentof(root.parentof(self))
+					if isinstance(parent, Fraction) and root.neighbor_right(self) is None:  # if inside fraction and next to me is nothing (cursor is at the end of numerator)
+						self.cursor = None
+						root.neighbor_right(parent).cursor = ScreenOffset(0, 0)  # start of the text field
+					else:
+						self.press_key(readchar.key.DOWN, root, skip_empty=False)
+				else:
+					self.press_key(readchar.key.DOWN, root, skip_empty=False)
 		
 		if key == readchar.key.UP:
 			bfs_line = root.bfs_children()
