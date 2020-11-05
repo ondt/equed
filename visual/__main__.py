@@ -13,6 +13,7 @@ from visual import ansi, utils
 
 # config
 SKIP_DENOMINATOR = False  # maple, desmos: True
+MAPLE_FRAC_DEL = False  # maple removes the last char from denominator if backspace is pressed right after the fraction
 FRAC_PADDING = 1
 
 NUM_COLOR = ansi.red
@@ -280,11 +281,11 @@ class Expression:
 		print("\033[2J\033[H" + "\n".join(output), end="", flush=True)
 	
 	
-	def press_key(self, key: str, root: Expression = None, skip_empty: bool = False) -> bool:
+	def press_key(self, key: str, root: Expression = None, skip_empty: bool = True) -> bool:
 		"""Only Text can have a cursor (pass the key on by default)"""
 		root = root or self
 		for child in self.children():
-			accepted = child.press_key(key, root)
+			accepted = child.press_key(key, root, skip_empty)
 			if accepted:
 				return True  # cursor could be moved multiple times if we wouldn't stop right there
 		return False  # not accepted yet... (dead end)
@@ -379,10 +380,17 @@ class Text(Expression):
 					root.delete(neighbor_left)
 					return True  # keystroke accepted
 				
+				# next to a fraction --> jump to the denominator and press BACKSPACE
+				if isinstance(neighbor_left, Fraction):
+					root.press_key(readchar.key.LEFT, root)
+					if MAPLE_FRAC_DEL:
+						root.press_key(readchar.key.BACKSPACE, root)
+					return True  # keystroke accepted
+				
 				# try to remove fraction
 				parent1 = root.parentof(self)
 				parent2 = root.parentof(parent1)
-				if isinstance(parent1, Row) and isinstance(parent2, Fraction):
+				if isinstance(parent1, Row) and isinstance(parent2, Fraction) and neighbor_left is None:
 					if parent1 is parent2.denominator:
 						eprint(ansi.yellow("REMOVING FRACTION"))
 						frac_contents = parent2.numerator.items + parent2.denominator.items
@@ -401,7 +409,7 @@ class Text(Expression):
 			if self.cursor.col > 0:
 				self.cursor = self.cursor.left(1)
 			else:
-				self.press_key(readchar.key.UP, root, skip_empty=False)
+				root.press_key(readchar.key.UP, root, skip_empty=False)
 		
 		if key == readchar.key.RIGHT:
 			if self.cursor.col < self.width():  # + one space at the end
@@ -413,9 +421,9 @@ class Text(Expression):
 						self.cursor = None
 						root.neighbor_right(parent).cursor = ScreenOffset(0, 0)  # start of the text field
 					else:
-						self.press_key(readchar.key.DOWN, root, skip_empty=False)
+						root.press_key(readchar.key.DOWN, root, skip_empty=False)
 				else:
-					self.press_key(readchar.key.DOWN, root, skip_empty=False)
+					root.press_key(readchar.key.DOWN, root, skip_empty=False)
 		
 		if key == readchar.key.UP:
 			bfs_line = root.bfs_children()
