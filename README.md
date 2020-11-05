@@ -17,6 +17,7 @@ Status: **proof of concept**
 - [x] code execution
 - [ ] keybindings
 - [ ] teleporting cursor to mouse click
+- [ ] better wrapping
 - [ ] repl-like visual interface
 - [ ] text selection
 - [ ] copy/paste selection
