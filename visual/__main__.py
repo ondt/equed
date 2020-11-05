@@ -742,42 +742,6 @@ class RParen(Paren):
 
 
 
-class Parenthesis(Expression):
-	def __init__(self, expr: Expression):
-		self.expr: Expression = expr
-		assert False
-	
-	def children(self) -> List[Expression]:
-		return [self.expr]
-	
-	def render(self) -> RenderOutput:
-		r = self.expr.render()
-		
-		cursor = r.cursor.right(1) if r.cursor else None
-		
-		if len(r.lines) == 1:
-			return RenderOutput([f"({r.lines[0]})"], [[PAREN_COLOR] + r.colors[0] + [PAREN_COLOR]], 0, r.width + 2, cursor)
-		else:
-			output = []
-			colors = []
-			for index, (line, color) in enumerate(zip(r.lines, r.colors)):
-				if index == 0:
-					lparen, rparen = "⎛", "⎞"
-				elif index < len(r.lines) - 1:
-					lparen, rparen = "⎜", "⎟"
-				else:
-					lparen, rparen = "⎝", "⎠"
-				
-				output.append(f"{lparen}{line}{rparen}")
-				colors.append([PAREN_COLOR] + list_align(color, r.width) + [PAREN_COLOR])
-			
-			return RenderOutput(output, colors, r.baseline, r.width + 2, cursor)
-	
-	def __str__(self):
-		return f"({self.expr})"
-
-
-
 def row(*items: Expression) -> Row:
 	return Row(list(items))
 
@@ -803,10 +767,7 @@ def fraction(numerator: Row, denominator: Row) -> Row:
 	assert isinstance(denominator, Row)
 	return row(
 		text(),  # jump target
-		Fraction(
-			numerator=numerator,
-			denominator=denominator,
-		),
+		Fraction(numerator, denominator),
 		text(),  # jump target
 	)
 
@@ -816,7 +777,6 @@ def parenthesis(expr: Row) -> Row:
 	assert isinstance(expr, Row)
 	return row(
 		text(),  # jump target
-		# Parenthesis(expr),
 		lparen(),
 		expr,
 		rparen(),
