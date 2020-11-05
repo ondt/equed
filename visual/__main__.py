@@ -556,7 +556,7 @@ class Fraction(Expression):
 		
 		output = []
 		output.extend([str_align(l, w) for l in n.lines])
-		output.append("─" * w)
+		output.append(f"╶{'─' * (w - 2)}╴")
 		output.extend([str_align(l, w) for l in d.lines])
 		
 		colors = []
