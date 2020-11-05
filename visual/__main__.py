@@ -520,8 +520,8 @@ class Row(Expression):
 		
 		for child in self.children():
 			if isinstance(child, RParen) and not child.paired:
-				child.sync(root)
-		pass
+				child.sync(root, give_up=True)
+	
 	
 	
 	def __str__(self):
@@ -611,8 +611,14 @@ class LParen(Paren):
 			return RenderOutput(output, [[PAREN_COLOR if self.paired else XPEREN_COLOR]] * self.height, self.baseline, width=1, cursor=None)
 	
 	
-	def sync(self, root: Expression = None):
+	def sync(self, root: Expression = None, give_up: bool = False):
 		assert root is not None, "Paren must always be inside a Row."
+		
+		if give_up:
+			rr = row(*root.all_neighbors_left(self)).render()
+			self.baseline = rr.baseline
+			self.height = len(rr.lines)
+			return
 		
 		self.height = 1
 		self.baseline = 0
@@ -647,8 +653,14 @@ class RParen(Paren):
 			
 			return RenderOutput(output, [[PAREN_COLOR if self.paired else XPEREN_COLOR]] * self.height, self.baseline, width=1, cursor=None)
 	
-	def sync(self, root: Expression = None):
+	def sync(self, root: Expression = None, give_up: bool = False):
 		assert root is not None, "Paren must always be inside a Row."
+		
+		if give_up:
+			rr = row(*root.all_neighbors_left(self)).render()
+			self.baseline = rr.baseline
+			self.height = len(rr.lines)
+			return
 		
 		self.height = 1
 		self.baseline = 0
@@ -764,7 +776,7 @@ expression = row(
 	fraction(
 		fraction(
 			text("444444444444"),
-			row(text("999"), text("5555555555555", cursor=ScreenOffset(0, 1))),
+			row(text("5555555555555", cursor=ScreenOffset(0, 1)), fraction(fraction(fraction(text("a"), text("a")), text("a")), text("a")), text("+"), lparen(), fraction(text("a"), fraction(text("a"), text("a"))), rparen(), rparen()),
 		),
 		text("666666666666"),
 	),
