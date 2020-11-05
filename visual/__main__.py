@@ -27,7 +27,7 @@ OP_COLOR = ansi.green
 FUNC_COLOR = ansi.blue
 FRAC_COLOR = ansi.reset
 PAREN_COLOR = ansi.reset
-XPEREN_COLOR = ansi.blue  # unmatched paren
+UNMATCHED_PAREN_COLOR = ansi.blue  # unmatched paren
 
 var = 10
 
@@ -485,18 +485,18 @@ class Row(Expression):
 		root = root or self
 		
 		# reset the paren pairing
-		for child in self.children():
-			if isinstance(child, Paren):
-				child.paired = False
+		for paren in self.children():
+			if isinstance(paren, Paren):
+				paren.paired = False
 		
 		# sync/pair parenthesis
-		for child in reversed(self.children()):
-			if isinstance(child, LParen):
-				child.sync(root=root, rparent=self, parent=parent)
+		for paren in reversed(self.children()):
+			if isinstance(paren, LParen):
+				paren.find_pair(root=root, rparent=self, parent=parent)
 		
-		for child in self.children():
-			if isinstance(child, RParen) and not child.paired:
-				child.sync(root=root, rparent=self, parent=parent, give_up=True)
+		for paren in self.children():
+			if isinstance(paren, RParen) and not paren.paired:
+				paren.find_pair(root=root, rparent=self, parent=parent, give_up=True)
 		
 		###############################################################################################
 		
@@ -643,6 +643,9 @@ class Paren(Expression):
 	
 	def children(self) -> List[Expression]:
 		return []
+	
+	def find_pair(self, root: Row = None, rparent: Row = None, parent: Expression = None, give_up: bool = False):
+		raise NotImplementedError
 
 
 
@@ -653,7 +656,7 @@ class LParen(Paren):
 		assert isinstance(root, Row) and isinstance(rparent, Row)
 		
 		if self.height == 1:
-			return RenderOutput(["("], [[PAREN_COLOR if self.paired else XPEREN_COLOR]], self.baseline, width=1, cursor=None)
+			return RenderOutput(["("], [[PAREN_COLOR if self.paired else UNMATCHED_PAREN_COLOR]], self.baseline, width=1, cursor=None)
 		else:
 			output = flatten([
 				"⎛",
@@ -661,13 +664,13 @@ class LParen(Paren):
 				"⎝",
 			])
 			
-			return RenderOutput(output, [[PAREN_COLOR if self.paired else XPEREN_COLOR]] * self.height, self.baseline, width=1, cursor=None)
+			return RenderOutput(output, [[PAREN_COLOR if self.paired else UNMATCHED_PAREN_COLOR]] * self.height, self.baseline, width=1, cursor=None)
 	
 	def press_key(self, key: str, root: Row = None, rparent: Row = None, parent: Expression = None, skip_empty: bool = True) -> bool:
 		return False
 	
 	
-	def sync(self, root: Row = None, rparent: Row = None, parent: Expression = None, give_up: bool = False):
+	def find_pair(self, root: Row = None, rparent: Row = None, parent: Expression = None, give_up: bool = False):
 		assert isinstance(root, Row) and isinstance(rparent, Row)
 		assert root is not None, "Paren must always be inside a Row."
 		
@@ -711,7 +714,7 @@ class RParen(Paren):
 		assert isinstance(root, Row) and isinstance(rparent, Row)
 		
 		if self.height == 1:
-			return RenderOutput([")"], [[PAREN_COLOR if self.paired else XPEREN_COLOR]], self.baseline, width=1, cursor=None)
+			return RenderOutput([")"], [[PAREN_COLOR if self.paired else UNMATCHED_PAREN_COLOR]], self.baseline, width=1, cursor=None)
 		else:
 			output = flatten([
 				"⎞",
@@ -719,12 +722,12 @@ class RParen(Paren):
 				"⎠",
 			])
 			
-			return RenderOutput(output, [[PAREN_COLOR if self.paired else XPEREN_COLOR]] * self.height, self.baseline, width=1, cursor=None)
+			return RenderOutput(output, [[PAREN_COLOR if self.paired else UNMATCHED_PAREN_COLOR]] * self.height, self.baseline, width=1, cursor=None)
 	
 	def press_key(self, key: str, root: Row = None, rparent: Row = None, parent: Expression = None, skip_empty: bool = True) -> bool:
 		return False
 	
-	def sync(self, root: Row = None, rparent: Row = None, parent: Expression = None, give_up: bool = False):
+	def find_pair(self, root: Row = None, rparent: Row = None, parent: Expression = None, give_up: bool = False):
 		assert isinstance(root, Row) and isinstance(rparent, Row)
 		assert root is not None, "Paren must always be inside a Row."
 		
