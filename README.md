@@ -41,6 +41,7 @@ Status: **proof of concept**
 - **Editing**
     - Skip fraction denominator when pressing RIGHT
     - Maple fraction DEL
+    - Fraction inserting method (maple, split, empty)
 - **Rendering**
     - Fraction padding
     - Fraction shorter line ends

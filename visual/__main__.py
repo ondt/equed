@@ -14,6 +14,7 @@ from visual import ansi, utils
 # editing
 SKIP_DENOMINATOR = False  # maple, mathquill: True
 MAPLE_FRAC_DEL = False  # maple removes last char from denominator if backspace is pressed right after the fraction
+FRAC_INS_METHOD = "empty"  # possible values: maple, split, empty
 
 # rendering
 FRAC_PADDING = 1
@@ -346,16 +347,26 @@ class Text(Expression):
 			
 			# todo: expanders (run always for all texts?)
 			if sequence.endswith("\\frac"):
-				# todo
-				pass
+				self.text = before_cursor[:-4] + after_cursor
+				self.cursor = self.cursor.left(4)
+				root.press_key("/")
 			
 			elif sequence.endswith("sqrt("):
 				# todo
 				pass
 			
-			elif key == "/":
+			elif key == "/":  # todo: shift-/ to split?
 				eprint(ansi.yellow("INSERTING FRACTION"))
-				root.replace(self, fraction(text(before_cursor), text(after_cursor, cursor=ScreenOffset(0, 0))))
+				if FRAC_INS_METHOD == "maple":
+					root.replace(self, row(fraction(text(before_cursor), text(cursor=ScreenOffset(0, 0))), text(after_cursor)))
+				elif FRAC_INS_METHOD == "split":
+					root.replace(self, fraction(text(before_cursor), text(after_cursor, cursor=ScreenOffset(0, 0))))
+				elif FRAC_INS_METHOD == "empty":
+					root.replace(self, row(text(before_cursor), fraction(text(cursor=ScreenOffset(0, 0)), text()), text(after_cursor)))
+				else:
+					eprint(ansi.red("FRAC_INS_METHOD contains invalid value"))
+					exit(1)
+			
 			
 			elif key == "(":
 				eprint(ansi.yellow("INSERTING LPAREN"))
@@ -400,7 +411,7 @@ class Text(Expression):
 						frac_contents = parent2.numerator.items + parent2.denominator.items
 						root.replace(parent2, row(*frac_contents))
 					else:  # fraction will not get deleted if backspace was pressed inside the numerator
-						self.press_key(readchar.key.LEFT, root)
+						root.press_key(readchar.key.LEFT, root)
 					return True  # keystroke accepted
 			
 			else:
