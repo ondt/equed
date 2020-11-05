@@ -205,6 +205,18 @@ class Expression:
 		index = obj_index(parent.items, node) + skip
 		return parent.items[index] if index in range(len(parent.items)) else None
 	
+	def all_neighbors_left(self, node: Expression, skip: int = 1) -> List[Expression]:
+		parent = self.parentof(node)
+		assert isinstance(parent, Row)
+		index = obj_index(parent.items, node) - skip
+		return parent.items[:index]
+	
+	def all_neighbors_right(self, node: Expression, skip: int = 1) -> List[Expression]:
+		parent = self.parentof(node)
+		assert isinstance(parent, Row)
+		index = obj_index(parent.items, node) + skip
+		return parent.items[index:]
+	
 	def width(self):  # SLOW!
 		return len(self.render().lines[0])
 	
