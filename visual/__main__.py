@@ -19,6 +19,7 @@ OP_COLOR = ansi.green
 FUNC_COLOR = ansi.blue
 FRAC_COLOR = ansi.reset
 PAREN_COLOR = ansi.reset
+XPEREN_COLOR = ansi.blue  # unmatched paren
 FRAC_PADDING = 1
 
 var = 10
@@ -599,7 +600,7 @@ class Paren(Expression):
 class LParen(Paren):
 	def render(self) -> RenderOutput:
 		if self.height == 1:
-			return RenderOutput(["("], [[PAREN_COLOR]], self.baseline, width=1, cursor=None)
+			return RenderOutput(["("], [[PAREN_COLOR if self.paired else XPEREN_COLOR]], self.baseline, width=1, cursor=None)
 		else:
 			output = flatten([
 				"⎛",
@@ -607,7 +608,7 @@ class LParen(Paren):
 				"⎝",
 			])
 			
-			return RenderOutput(output, [[PAREN_COLOR]] * self.height, self.baseline, width=1, cursor=None)
+			return RenderOutput(output, [[PAREN_COLOR if self.paired else XPEREN_COLOR]] * self.height, self.baseline, width=1, cursor=None)
 	
 	
 	def sync(self, root: Expression = None):
@@ -636,7 +637,7 @@ class LParen(Paren):
 class RParen(Paren):
 	def render(self) -> RenderOutput:
 		if self.height == 1:
-			return RenderOutput([")"], [[PAREN_COLOR]], self.baseline, width=1, cursor=None)
+			return RenderOutput([")"], [[PAREN_COLOR if self.paired else XPEREN_COLOR]], self.baseline, width=1, cursor=None)
 		else:
 			output = flatten([
 				"⎞",
@@ -644,7 +645,7 @@ class RParen(Paren):
 				"⎠",
 			])
 			
-			return RenderOutput(output, [[PAREN_COLOR]] * self.height, self.baseline, width=1, cursor=None)
+			return RenderOutput(output, [[PAREN_COLOR if self.paired else XPEREN_COLOR]] * self.height, self.baseline, width=1, cursor=None)
 	
 	def sync(self, root: Expression = None):
 		assert root is not None, "Paren must always be inside a Row."
