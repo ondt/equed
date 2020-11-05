@@ -56,9 +56,9 @@ Status: **proof of concept**
 
 
 # SEE ALSO
-- [python](https://docs.python.org/3/)
-- [sympy](https://docs.sympy.org/)
-- [formulador](https://github.com/stylewarning/formulador)
+- [Maple](https://en.wikipedia.org/wiki/Maple_(software))
+- [MathQuill](http://mathquill.com/)
+- [Formulador](https://github.com/stylewarning/formulador)
 
 
 

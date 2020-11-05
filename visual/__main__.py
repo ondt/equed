@@ -12,7 +12,7 @@ import readchar
 from visual import ansi, utils
 
 # editing
-SKIP_DENOMINATOR = False  # maple, desmos: True
+SKIP_DENOMINATOR = False  # maple, mathquill: True
 MAPLE_FRAC_DEL = False  # maple removes last char from denominator if backspace is pressed right after the fraction
 
 # rendering
@@ -419,7 +419,7 @@ class Text(Expression):
 			if self.cursor.col < self.width():  # + one space at the end
 				self.cursor = self.cursor.right(1)
 			else:
-				if SKIP_DENOMINATOR:  # maple, desmos: RIGHT inside numerator causes the cursor to jump right after the fraction
+				if SKIP_DENOMINATOR:  # maple, mathquill: RIGHT inside numerator causes the cursor to jump right after the fraction
 					parent = root.parentof(root.parentof(self))
 					if isinstance(parent, Fraction) and root.neighbor_right(self) is None:  # if inside fraction and next to me is nothing (cursor is at the end of numerator)
 						self.cursor = None
