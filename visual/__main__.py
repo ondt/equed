@@ -325,7 +325,15 @@ class Text(Expression):
 			sequence = before_cursor + key
 			
 			# todo: expanders (run always for all texts?)
-			if key == "/":
+			if sequence.endswith("\\frac"):
+				# todo
+				pass
+			
+			elif sequence.endswith("sqrt("):
+				# todo
+				pass
+			
+			elif key == "/":
 				eprint(ansi.yellow("INSERTING FRACTION"))
 				root.replace(self, fraction(text(before_cursor), text(after_cursor, cursor=ScreenOffset(0, 0))))
 			
@@ -335,17 +343,11 @@ class Text(Expression):
 				assert isinstance(parent, Row)
 				root.replace(self, row(text(before_cursor), lparen(), text(after_cursor, cursor=ScreenOffset(0, 0))))
 			
-			
 			elif key == ")":
 				eprint(ansi.yellow("INSERTING RPAREN"))
 				parent = root.parentof(self)
 				assert isinstance(parent, Row)
 				root.replace(self, row(text(before_cursor), rparen(), text(after_cursor, cursor=ScreenOffset(0, 0))))
-			
-			
-			elif sequence.endswith("\\frac"):
-				# todo
-				pass
 			
 			else:
 				eprint(ansi.yellow(f"INSERTING TEXT: '{key}'"))
@@ -353,7 +355,15 @@ class Text(Expression):
 				self.cursor = self.cursor.right(1)
 		
 		if key == readchar.key.BACKSPACE:
+			# cursor at the beginning of the text field means some special del procedure is to be executed
 			if self.cursor.col == 0:
+				# try to remove lparen or rparen
+				neighbor_left = root.neighbor_left(self)
+				if isinstance(neighbor_left, Paren):
+					eprint(ansi.yellow("REMOVING PAREN"))
+					root.delete(neighbor_left)
+					return True  # keystroke accepted
+				
 				# try to remove fraction
 				parent1 = root.parentof(self)
 				parent2 = root.parentof(parent1)
@@ -364,11 +374,7 @@ class Text(Expression):
 						root.replace(parent2, row(*frac_contents))
 					else:  # fraction will not get deleted if backspace was pressed inside the numerator
 						self.press_key(readchar.key.LEFT, root)
-			
-			
-			
-			
-			
+					return True  # keystroke accepted
 			
 			else:
 				eprint(ansi.yellow(f"REMOVE: '{self.text[self.cursor.col - 1]}'"))
@@ -597,6 +603,8 @@ class Paren(Expression):
 
 
 
+# todo: merge LParen and RParen, add [], {}
+
 class LParen(Paren):
 	def render(self) -> RenderOutput:
 		if self.height == 1:
@@ -791,6 +799,8 @@ expression = row(
 # )
 
 # expression = text("123456789", cursor=ScreenOffset(0, 1))
+
+# expression = text(cursor=ScreenOffset(0, 0))
 
 while True:
 	expression.sync()
