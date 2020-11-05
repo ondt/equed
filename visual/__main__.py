@@ -277,6 +277,10 @@ class Expression:
 		return False  # not accepted yet... (dead end)
 	
 	
+	def sync(self, root: Expression = None):
+		raise NotImplementedError
+	
+	
 	def __str__(self):
 		raise NotImplementedError
 
@@ -418,6 +422,11 @@ class Text(Expression):
 		
 		return True  # keystroke accepted
 	
+	
+	def sync(self, root: Expression = None):
+		pass
+	
+	
 	def __str__(self):
 		return self.text
 
@@ -490,6 +499,30 @@ class Row(Expression):
 		self.items = output
 	
 	
+	
+	def sync(self, root: Expression = None):
+		root = root or self
+		for child in self.children():
+			child.sync(root)
+		
+		# todo: merge with render()
+		
+		# reset the paren pairing
+		for child in self.children():
+			if isinstance(child, Paren):
+				child.paired = False
+		
+		# sync/pair parenthesis
+		for child in reversed(self.children()):
+			if isinstance(child, LParen):
+				child.sync(root)
+		
+		for child in self.children():
+			if isinstance(child, RParen) and not child.paired:
+				child.sync(root)
+		pass
+	
+	
 	def __str__(self):
 		return "".join([str(x) for x in self.items])
 
@@ -533,6 +566,10 @@ class Fraction(Expression):
 		
 		return RenderOutput(output, colors, baseline, w, cursor)
 	
+	def sync(self, root: Expression = None):
+		assert isinstance(root, Row)
+		for child in self.children():
+			child.sync(root)
 	
 	def __str__(self):
 		return f"(({str(self.numerator) or 'None'}) / ({str(self.denominator) or 'None'}))"
@@ -541,13 +578,17 @@ class Fraction(Expression):
 
 class Paren(Expression):
 	def __init__(self):
+		self.paired = False
 		self.height = 3
 		self.baseline = 1
 	
 	def children(self) -> List[Expression]:
-		raise NotImplementedError
+		return []
 	
 	def render(self) -> RenderOutput:
+		raise NotImplementedError
+	
+	def sync(self, root: Expression = None):
 		raise NotImplementedError
 	
 	def __str__(self):
@@ -556,11 +597,26 @@ class Paren(Expression):
 
 
 class LParen(Paren):
-	def children(self) -> List[Expression]:
-		return []
-	
 	def render(self) -> RenderOutput:
-		return RenderOutput(["(", "(", "("], [[PAREN_COLOR], [PAREN_COLOR], [PAREN_COLOR]], self.baseline, width=1, cursor=None)
+		return RenderOutput(["("] * self.height, [[PAREN_COLOR]] * self.height, self.baseline, width=1, cursor=None)
+	
+	def sync(self, root: Expression = None):
+		assert root is not None, "Paren must always be inside a Row."
+		
+		self.height = 1
+		self.baseline = 0
+		for expr in root.all_neighbors_right(self):
+			if isinstance(expr, RParen) and not expr.paired:
+				expr.height = self.height
+				expr.baseline = self.baseline
+				expr.paired = True
+				self.paired = True
+				break
+			
+			rr = expr.render()
+			self.baseline = max(self.baseline, rr.baseline)
+			self.height = max(self.height, len(rr.lines) + abs(self.baseline - rr.baseline))
+	
 	
 	def __str__(self):
 		return "("
@@ -568,11 +624,26 @@ class LParen(Paren):
 
 
 class RParen(Paren):
-	def children(self) -> List[Expression]:
-		return []
-	
 	def render(self) -> RenderOutput:
-		return RenderOutput([")", ")", ")"], [[PAREN_COLOR], [PAREN_COLOR], [PAREN_COLOR]], self.baseline, width=1, cursor=None)
+		return RenderOutput([")"] * self.height, [[PAREN_COLOR]] * self.height, self.baseline, width=1, cursor=None)
+	
+	def sync(self, root: Expression = None):
+		assert root is not None, "Paren must always be inside a Row."
+		
+		self.height = 1
+		self.baseline = 0
+		for expr in reversed(root.all_neighbors_left(self)):
+			if isinstance(expr, LParen) and not expr.paired:
+				expr.height = self.height
+				expr.baseline = self.baseline
+				expr.paired = True  # should already be paired
+				self.paired = True
+				break
+			
+			rr = expr.render()
+			self.baseline = max(self.baseline, rr.baseline)
+			self.height = max(self.height, len(rr.lines) + abs(self.baseline - rr.baseline))
+	
 	
 	def __str__(self):
 		return ")"
@@ -582,6 +653,7 @@ class RParen(Paren):
 class Parenthesis(Expression):
 	def __init__(self, expr: Expression):
 		self.expr: Expression = expr
+		assert False
 	
 	def children(self) -> List[Expression]:
 		return [self.expr]
@@ -652,7 +724,10 @@ def parenthesis(expr: Row) -> Row:
 	assert isinstance(expr, Row)
 	return row(
 		text(),  # jump target
-		Parenthesis(expr),
+		# Parenthesis(expr),
+		lparen(),
+		expr,
+		rparen(),
 		text(),  # jump target
 	)
 
@@ -686,6 +761,7 @@ expression = row(
 # expression = text("123456789", cursor=ScreenOffset(0, 1))
 
 while True:
+	expression.sync()
 	# expression.simplify()  # redundant
 	expression.display()
 	
@@ -696,5 +772,6 @@ while True:
 		break
 	
 	expression.press_key(key)
+	expression.simplify()
 
 expression.display(cursor=False)
