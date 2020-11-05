@@ -11,11 +11,15 @@ import readchar
 
 from visual import ansi, utils
 
-# config
+# editing
 SKIP_DENOMINATOR = False  # maple, desmos: True
-MAPLE_FRAC_DEL = False  # maple removes the last char from denominator if backspace is pressed right after the fraction
-FRAC_PADDING = 1
+MAPLE_FRAC_DEL = False  # maple removes last char from denominator if backspace is pressed right after the fraction
 
+# rendering
+FRAC_PADDING = 1
+FRAC_SHORTER_ENDS = True
+
+# syntax highlighting colors
 NUM_COLOR = ansi.red
 TXT_COLOR = ansi.yellow | ansi.italic
 OP_COLOR = ansi.green
@@ -601,7 +605,7 @@ class Fraction(Expression):
 		
 		output = []
 		output.extend([str_align(l, w) for l in n.lines])
-		output.append(f"╶{'─' * (w - 2)}╴")
+		output.append(f"╶{'─' * (w - 2)}╴" if FRAC_SHORTER_ENDS else '─' * w)
 		output.extend([str_align(l, w) for l in d.lines])
 		
 		colors = []

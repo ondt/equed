@@ -38,9 +38,13 @@ Status: **proof of concept**
 
 
 # SETTINGS
-- Skip fraction denominator
-- Fraction padding
-- Syntax highlighting colors
+- **Editing**
+    - Skip fraction denominator when pressing RIGHT
+    - Maple fraction DEL
+- **Rendering**
+    - Fraction padding
+    - Fraction shorter line ends
+- **Syntax highlighting colors**
     - Number
     - Text
     - Operator
