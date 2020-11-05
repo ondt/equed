@@ -674,8 +674,7 @@ expression = row(
 # expression = text("123456789", cursor=ScreenOffset(0, 1))
 
 while True:
-	# expression.simplify()
-	expression.simplify()
+	# expression.simplify()  # redundant
 	expression.display()
 	
 	key = readchar.readkey()
