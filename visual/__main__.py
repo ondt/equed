@@ -229,7 +229,7 @@ class Expression:
 		for child in self.children():
 			child.simplify()
 	
-	def display(self, cursor: bool = True, colormap: bool = True, code: bool = True):  # todo: curses
+	def display(self, cursor: bool = True, colormap: bool = True, code: bool = True, dump: bool = True):  # todo: curses
 		"""Render the expression onto the screen"""
 		r = self.render()
 		
@@ -257,8 +257,12 @@ class Expression:
 		if code:
 			eval_result = utils.run(str(self))
 			output.append("")
-			output.append(f">>> {self}")
+			output.append(f"{ansi.blue('code:')} {self}")
 			output.append(f"{eval_result}")
+		
+		if dump:
+			output.append("")
+			output.append(f"{ansi.blue('repr:')} {repr(expression)}")
 		
 		output.append("")  # newline at the end of the output
 		
@@ -284,6 +288,9 @@ class Expression:
 	
 	
 	def __str__(self):
+		raise NotImplementedError
+	
+	def __repr__(self):
 		raise NotImplementedError
 
 
@@ -437,6 +444,13 @@ class Text(Expression):
 	
 	def __str__(self):
 		return self.text
+	
+	def __repr__(self):
+		cur = ""
+		if self.cursor:
+			cur = (", " if self.text else "") + f"cursor=ScreenOffset({self.cursor.row}, {self.cursor.col})"
+		
+		return f'text("{self.text}"{cur})' if self.text else f"text({cur})"
 
 
 
@@ -533,6 +547,13 @@ class Row(Expression):
 	
 	def __str__(self):
 		return "".join([str(x) for x in self.items])
+	
+	def __repr__(self):
+		r = [x for x in [repr(x) for x in self.items] if x != 'text()']
+		if len(r) == 1:
+			return r[0]
+		else:
+			return f"row({', '.join(r)})"
 
 
 
@@ -581,6 +602,9 @@ class Fraction(Expression):
 	
 	def __str__(self):
 		return f"(({str(self.numerator) or 'None'}) / ({str(self.denominator) or 'None'}))"
+	
+	def __repr__(self):
+		return f"fraction({repr(self.numerator)}, {repr(self.denominator)})"
 
 
 
@@ -600,6 +624,9 @@ class Paren(Expression):
 		raise NotImplementedError
 	
 	def __str__(self):
+		raise NotImplementedError
+	
+	def __repr__(self):
 		raise NotImplementedError
 
 
@@ -646,6 +673,9 @@ class LParen(Paren):
 	
 	def __str__(self):
 		return "("
+	
+	def __repr__(self):
+		return "lparen()"
 
 
 
@@ -688,6 +718,9 @@ class RParen(Paren):
 	
 	def __str__(self):
 		return ")"
+	
+	def __repr__(self):
+		return "rparen()"
 
 
 
@@ -785,7 +818,31 @@ expression = row(
 	fraction(
 		fraction(
 			text("444444444444"),
-			row(text("5555555555555", cursor=ScreenOffset(0, 1)), fraction(fraction(fraction(text("a"), text("a")), text("a")), text("a")), text("+"), lparen(), fraction(text("a"), fraction(text("a"), text("a"))), rparen(), rparen()),
+			row(
+				text("5555555555555", cursor=ScreenOffset(0, 1)),
+				fraction(
+					fraction(
+						fraction(
+							text("a"),
+							text("a")
+						),
+						text("a")
+					),
+					text("a")
+				),
+				text("+"),
+				parenthesis(
+					fraction(
+						text("a"),
+						fraction(
+							text("a"),
+							text("a")
+						)
+					),
+				),
+				rparen(),
+				text("aaa"),
+			),
 		),
 		text("666666666666"),
 	),
