@@ -414,6 +414,7 @@ class Text(Expression):
 class Row(Expression):
 	def __init__(self, items: List[Expression]):
 		self.items = items
+		self.simplify()
 	
 	def children(self) -> List[Expression]:
 		return self.items
@@ -446,7 +447,7 @@ class Row(Expression):
 		
 		return RenderOutput(lines, colors, baseline, sum(r.width for r in rr), cursor)
 	
-	def simplify(self):
+	def simplify(self):  # todo: remove the abstract method?
 		output = []
 		
 		# flatten rows
