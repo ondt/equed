@@ -14,7 +14,7 @@ from visual import ansi, utils
 # editing
 SKIP_DENOMINATOR = False  # maple, mathquill: True
 MAPLE_FRAC_DEL = False  # maple removes last char from denominator if backspace is pressed right after the fraction
-FRAC_INS_METHOD = "empty"  # possible values: maple, split, empty
+FRAC_INS_METHOD = "maple"  # possible values: maple, split, empty
 
 # rendering
 FRAC_PADDING = 1
@@ -232,15 +232,15 @@ class Expression:
 		index = obj_index(parent.items, node) + skip
 		return parent.items[index:]
 	
-	def width(self):  # SLOW!
-		return len(self.render().lines[0])
+	def width(self, root: Row = None, rparent: Row = None, parent: Expression = None):  # SLOW!
+		return len(self.render(root=root, rparent=rparent, parent=parent).lines[0])
 	
-	def render(self) -> RenderOutput:
+	def render(self, root: Row = None, rparent: Row = None, parent: Expression = None) -> RenderOutput:
 		raise NotImplementedError
 	
-	def simplify(self):
+	def simplify(self, root: Row = None, rparent: Row = None, parent: Expression = None):
 		for child in self.children():
-			child.simplify()
+			child.simplify(root, rparent, self)
 	
 	def display(self, cursor: bool = True, colormap: bool = True, code: bool = True, dump: bool = True):  # todo: curses
 		"""Render the expression onto the screen"""
@@ -286,17 +286,7 @@ class Expression:
 		print("\033[2J\033[H" + "\n".join(output), end="", flush=True)
 	
 	
-	def press_key(self, key: str, root: Expression = None, skip_empty: bool = True) -> bool:
-		"""Only Text can have a cursor (pass the key on by default)"""
-		root = root or self
-		for child in self.children():
-			accepted = child.press_key(key, root, skip_empty)
-			if accepted:
-				return True  # cursor could be moved multiple times if we wouldn't stop right there
-		return False  # not accepted yet... (dead end)
-	
-	
-	def sync(self, root: Expression = None):
+	def press_key(self, key: str, root: Row = None, rparent: Row = None, parent: Expression = None, skip_empty: bool = True) -> bool:
 		raise NotImplementedError
 	
 	
@@ -316,7 +306,7 @@ class Text(Expression):
 	def children(self) -> List[Expression]:
 		return []
 	
-	def colorize(self) -> List[str]:  # list of colors
+	def colorize(self, root: Row = None, rparent: Row = None, parent: Expression = None) -> List[str]:  # list of colors
 		output = []
 		for char in self.text:
 			if char.isalpha():
@@ -331,11 +321,13 @@ class Text(Expression):
 		# todo: context-aware highlighting (string before paren is function, etc)
 		return output
 	
-	def render(self) -> RenderOutput:
-		return RenderOutput([self.text], [self.colorize()], 0, len(self.text), self.cursor)
+	def render(self, root: Row = None, rparent: Row = None, parent: Expression = None) -> RenderOutput:
+		assert isinstance(root, Row) and isinstance(rparent, Row)
+		return RenderOutput([self.text], [self.colorize(root, rparent, parent)], 0, len(self.text), self.cursor)
 	
 	
-	def press_key(self, key: str, root: Expression = None, skip_empty: bool = True) -> bool:
+	def press_key(self, key: str, root: Row = None, rparent: Row = None, parent: Expression = None, skip_empty: bool = True) -> bool:
+		assert isinstance(root, Row) and isinstance(rparent, Row)
 		assert root is not None, "Text must always be inside a Row."
 		
 		if not self.cursor:
@@ -427,7 +419,7 @@ class Text(Expression):
 				root.press_key(readchar.key.UP, root, skip_empty=False)
 		
 		if key == readchar.key.RIGHT:
-			if self.cursor.col < self.width():  # + one space at the end
+			if self.cursor.col < self.width(root, rparent, parent):  # + one space at the end
 				self.cursor = self.cursor.right(1)
 			else:
 				if SKIP_DENOMINATOR:  # maple, mathquill: RIGHT inside numerator causes the cursor to jump right after the fraction
@@ -448,7 +440,7 @@ class Text(Expression):
 					eprint("target:", expr.__class__.__name__, ansi.green(f"'{expr}'"))
 					self.cursor = None
 					# expr.cursor = ScreenOffset(0, 0)  # start of the text field
-					expr.cursor = ScreenOffset(0, expr.width())  # end of the text field
+					expr.cursor = ScreenOffset(0, expr.width(root, rparent, parent))  # end of the text field
 					break
 			else:  # no break happened before
 				eprint(ansi.red("WARNING:"), "ran out of targets (DOWN)")
@@ -467,9 +459,6 @@ class Text(Expression):
 		
 		return True  # keystroke accepted
 	
-	
-	def sync(self, root: Expression = None):
-		pass
 	
 	
 	def __str__(self):
@@ -492,8 +481,26 @@ class Row(Expression):
 	def children(self) -> List[Expression]:
 		return self.items
 	
-	def render(self) -> RenderOutput:
-		rr = [x.render() for x in self.items]
+	def render(self, root: Row = None, rparent: Row = None, parent: Expression = None) -> RenderOutput:
+		root = root or self
+		
+		# reset the paren pairing
+		for child in self.children():
+			if isinstance(child, Paren):
+				child.paired = False
+		
+		# sync/pair parenthesis
+		for child in reversed(self.children()):
+			if isinstance(child, LParen):
+				child.sync(root=root, rparent=self, parent=parent)
+		
+		for child in self.children():
+			if isinstance(child, RParen) and not child.paired:
+				child.sync(root=root, rparent=self, parent=parent, give_up=True)
+		
+		###############################################################################################
+		
+		rr = [x.render(root=root, rparent=self, parent=parent) for x in self.items]
 		baseline = max(r.baseline for r in rr)
 		
 		for r in rr:
@@ -520,7 +527,9 @@ class Row(Expression):
 		
 		return RenderOutput(lines, colors, baseline, sum(r.width for r in rr), cursor)
 	
-	def simplify(self):  # todo: remove the abstract method?
+	def simplify(self, root: Row = None, rparent: Row = None, parent: Expression = None):  # todo: remove the abstract method?
+		root = root or self
+		
 		output = []
 		
 		# flatten rows todo: manage nested rows
@@ -535,7 +544,7 @@ class Row(Expression):
 			for idx, (a, b) in enumerate(zip(output, output[1:])):
 				if isinstance(a, Text) and isinstance(b, Text):
 					if b.cursor:
-						a.cursor = ScreenOffset(0, a.width()).right(b.cursor.col)
+						a.cursor = ScreenOffset(0, a.width(root=root, rparent=self, parent=parent)).right(b.cursor.col)
 					a.text = f"{a.text}{b.text}"
 					output.pop(idx + 1)
 					break
@@ -544,35 +553,18 @@ class Row(Expression):
 		
 		# continue the recursion
 		for child in output:
-			child.simplify()  # fractions only, of course
+			child.simplify(root=root, rparent=self, parent=parent)  # fractions only, of course
 		
 		# todo: insert space into the text between adjacent fractions
 		
 		self.items = output
 	
-	
-	
-	def sync(self, root: Expression = None):
+	def press_key(self, key: str, root: Row = None, rparent: Row = None, parent: Expression = None, skip_empty: bool = True) -> bool:
 		root = root or self
 		for child in self.children():
-			if not isinstance(child, Paren):
-				child.sync(root)
-		
-		# todo: merge with render()
-		
-		# reset the paren pairing
-		for child in self.children():
-			if isinstance(child, Paren):
-				child.paired = False
-		
-		# sync/pair parenthesis
-		for child in reversed(self.children()):
-			if isinstance(child, LParen):
-				child.sync(root)
-		
-		for child in self.children():
-			if isinstance(child, RParen) and not child.paired:
-				child.sync(root, give_up=True)
+			if child.press_key(key, root=root, rparent=self, parent=parent, skip_empty=skip_empty):
+				return True  # cursor could be moved multiple times if we wouldn't stop right there
+		return False  # not accepted yet... (dead end)
 	
 	
 	
@@ -599,9 +591,11 @@ class Fraction(Expression):
 	def children(self) -> List[Expression]:
 		return [self.numerator, self.denominator]
 	
-	def render(self) -> RenderOutput:
-		n = self.numerator.render()
-		d = self.denominator.render()
+	def render(self, root: Row = None, rparent: Row = None, parent: Expression = None) -> RenderOutput:
+		assert isinstance(root, Row) and isinstance(rparent, Row)
+		
+		n = self.numerator.render(root=root, rparent=rparent, parent=self)
+		d = self.denominator.render(root=root, rparent=rparent, parent=self)
 		w = 2 * FRAC_PADDING + max(n.width, d.width)
 		
 		baseline = len(n.lines)
@@ -626,10 +620,12 @@ class Fraction(Expression):
 		
 		return RenderOutput(output, colors, baseline, w, cursor)
 	
-	def sync(self, root: Expression = None):
-		assert isinstance(root, Row)
-		for child in self.children():
-			child.sync(root)
+	def press_key(self, key: str, root: Row = None, rparent: Row = None, parent: Expression = None, skip_empty: bool = True) -> bool:
+		assert isinstance(root, Row) and isinstance(rparent, Row)
+		if self.numerator.press_key(key, root, rparent, self, skip_empty): return True  # keystroke accepted
+		if self.denominator.press_key(key, root, rparent, self, skip_empty): return True  # keystroke accepted
+		return False  # not accepted yet... (dead end)
+	
 	
 	def __str__(self):
 		return f"(({str(self.numerator) or 'None'}) / ({str(self.denominator) or 'None'}))"
@@ -647,25 +643,15 @@ class Paren(Expression):
 	
 	def children(self) -> List[Expression]:
 		return []
-	
-	def render(self) -> RenderOutput:
-		raise NotImplementedError
-	
-	def sync(self, root: Expression = None):
-		raise NotImplementedError
-	
-	def __str__(self):
-		raise NotImplementedError
-	
-	def __repr__(self):
-		raise NotImplementedError
 
 
 
 # todo: merge LParen and RParen, add [], {}
 
 class LParen(Paren):
-	def render(self) -> RenderOutput:
+	def render(self, root: Row = None, rparent: Row = None, parent: Expression = None) -> RenderOutput:
+		assert isinstance(root, Row) and isinstance(rparent, Row)
+		
 		if self.height == 1:
 			return RenderOutput(["("], [[PAREN_COLOR if self.paired else XPEREN_COLOR]], self.baseline, width=1, cursor=None)
 		else:
@@ -677,9 +663,14 @@ class LParen(Paren):
 			
 			return RenderOutput(output, [[PAREN_COLOR if self.paired else XPEREN_COLOR]] * self.height, self.baseline, width=1, cursor=None)
 	
+	def press_key(self, key: str, root: Row = None, rparent: Row = None, parent: Expression = None, skip_empty: bool = True) -> bool:
+		return False
 	
-	def sync(self, root: Expression = None, give_up: bool = False):
+	
+	def sync(self, root: Row = None, rparent: Row = None, parent: Expression = None, give_up: bool = False):
+		assert isinstance(root, Row) and isinstance(rparent, Row)
 		assert root is not None, "Paren must always be inside a Row."
+		
 		neighbors = root.all_neighbors_right(self)
 		
 		self.baseline = 0
@@ -689,7 +680,7 @@ class LParen(Paren):
 			return
 		
 		if give_up:
-			rr = row(*neighbors).render()
+			rr = row(*neighbors).render(root=root, rparent=rparent, parent=parent)
 			self.baseline = rr.baseline
 			self.height = len(rr.lines)
 			return
@@ -702,7 +693,7 @@ class LParen(Paren):
 				self.paired = True
 				break
 			
-			rr = expr.render()
+			rr = expr.render(root=root, rparent=rparent, parent=parent)
 			self.baseline = max(self.baseline, rr.baseline)
 			self.height = max(self.height, len(rr.lines) + abs(self.baseline - rr.baseline))
 	
@@ -716,7 +707,9 @@ class LParen(Paren):
 
 
 class RParen(Paren):
-	def render(self) -> RenderOutput:
+	def render(self, root: Row = None, rparent: Row = None, parent: Expression = None) -> RenderOutput:
+		assert isinstance(root, Row) and isinstance(rparent, Row)
+		
 		if self.height == 1:
 			return RenderOutput([")"], [[PAREN_COLOR if self.paired else XPEREN_COLOR]], self.baseline, width=1, cursor=None)
 		else:
@@ -728,8 +721,13 @@ class RParen(Paren):
 			
 			return RenderOutput(output, [[PAREN_COLOR if self.paired else XPEREN_COLOR]] * self.height, self.baseline, width=1, cursor=None)
 	
-	def sync(self, root: Expression = None, give_up: bool = False):
+	def press_key(self, key: str, root: Row = None, rparent: Row = None, parent: Expression = None, skip_empty: bool = True) -> bool:
+		return False
+	
+	def sync(self, root: Row = None, rparent: Row = None, parent: Expression = None, give_up: bool = False):
+		assert isinstance(root, Row) and isinstance(rparent, Row)
 		assert root is not None, "Paren must always be inside a Row."
+		
 		neighbors = root.all_neighbors_left(self)
 		
 		self.baseline = 0
@@ -739,7 +737,7 @@ class RParen(Paren):
 			return
 		
 		if give_up:
-			rr = row(*neighbors).render()
+			rr = row(*neighbors).render(root=root, rparent=rparent, parent=parent)
 			self.baseline = rr.baseline
 			self.height = len(rr.lines)
 			return
@@ -752,7 +750,7 @@ class RParen(Paren):
 				self.paired = True
 				break
 			
-			rr = expr.render()
+			rr = expr.render(root=root, rparent=rparent, parent=parent)
 			self.baseline = max(self.baseline, rr.baseline)
 			self.height = max(self.height, len(rr.lines) + abs(self.baseline - rr.baseline))
 	
@@ -862,7 +860,7 @@ expression = row(
 # expression = text(cursor=ScreenOffset(0, 0))
 
 while True:
-	expression.sync()
+	# expression.sync()
 	# expression.simplify()  # redundant
 	expression.display()
 	
