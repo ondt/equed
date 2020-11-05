@@ -598,7 +598,17 @@ class Paren(Expression):
 
 class LParen(Paren):
 	def render(self) -> RenderOutput:
-		return RenderOutput(["("] * self.height, [[PAREN_COLOR]] * self.height, self.baseline, width=1, cursor=None)
+		if self.height == 1:
+			return RenderOutput(["("], [[PAREN_COLOR]], self.baseline, width=1, cursor=None)
+		else:
+			output = flatten([
+				"⎛",
+				["⎜"] * (self.height - 2),
+				"⎝",
+			])
+			
+			return RenderOutput(output, [[PAREN_COLOR]] * self.height, self.baseline, width=1, cursor=None)
+	
 	
 	def sync(self, root: Expression = None):
 		assert root is not None, "Paren must always be inside a Row."
@@ -625,7 +635,16 @@ class LParen(Paren):
 
 class RParen(Paren):
 	def render(self) -> RenderOutput:
-		return RenderOutput([")"] * self.height, [[PAREN_COLOR]] * self.height, self.baseline, width=1, cursor=None)
+		if self.height == 1:
+			return RenderOutput([")"], [[PAREN_COLOR]], self.baseline, width=1, cursor=None)
+		else:
+			output = flatten([
+				"⎞",
+				["⎟"] * (self.height - 2),
+				"⎠",
+			])
+			
+			return RenderOutput(output, [[PAREN_COLOR]] * self.height, self.baseline, width=1, cursor=None)
 	
 	def sync(self, root: Expression = None):
 		assert root is not None, "Paren must always be inside a Row."
