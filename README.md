@@ -37,8 +37,16 @@ Status: **proof of concept**
 
 
 # SETTINGS
-- Syntax highlighting colors
+- Skip fraction denominator
 - Fraction padding
+- Syntax highlighting colors
+    - Number
+    - Text
+    - Operator
+    - Function
+    - Fraction
+    - Parenthesis
+    - Unmatched parenthesis
 
 
 

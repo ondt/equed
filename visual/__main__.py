@@ -12,7 +12,9 @@ import readchar
 from visual import ansi, utils
 
 # config
-COMPAT = True  # compatibility with maple and desmos
+SKIP_DENOMINATOR = False  # maple, desmos: True
+FRAC_PADDING = 1
+
 NUM_COLOR = ansi.red
 TXT_COLOR = ansi.yellow | ansi.italic
 OP_COLOR = ansi.green
@@ -20,7 +22,6 @@ FUNC_COLOR = ansi.blue
 FRAC_COLOR = ansi.reset
 PAREN_COLOR = ansi.reset
 XPEREN_COLOR = ansi.blue  # unmatched paren
-FRAC_PADDING = 1
 
 var = 10
 
@@ -392,7 +393,7 @@ class Text(Expression):
 			if self.cursor.col < self.width():  # + one space at the end
 				self.cursor = self.cursor.right(1)
 			else:
-				if COMPAT:  # maple, desmos: RIGHT inside numerator causes the cursor to jump right after the fraction
+				if SKIP_DENOMINATOR:  # maple, desmos: RIGHT inside numerator causes the cursor to jump right after the fraction
 					parent = root.parentof(root.parentof(self))
 					if isinstance(parent, Fraction) and root.neighbor_right(self) is None:  # if inside fraction and next to me is nothing (cursor is at the end of numerator)
 						self.cursor = None
