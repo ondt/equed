@@ -179,7 +179,6 @@ class Expression:
 		assert isinstance(old, Expression)
 		assert isinstance(new, Expression)
 		assert sum(ch is old for ch in self.bfs_children()) == 1
-		assert sum(ch is new for ch in self.bfs_children()) == 1
 		for parent in self.bfs_children():
 			for child in parent.children():
 				if child is old:
@@ -533,7 +532,8 @@ class Row(Expression):
 	def sync(self, root: Expression = None):
 		root = root or self
 		for child in self.children():
-			child.sync(root)
+			if not isinstance(child, Paren):
+				child.sync(root)
 		
 		# todo: merge with render()
 		
@@ -619,8 +619,8 @@ class Fraction(Expression):
 class Paren(Expression):
 	def __init__(self):
 		self.paired = False
-		self.height = 3
-		self.baseline = 1
+		self.height = 1
+		self.baseline = 0
 	
 	def children(self) -> List[Expression]:
 		return []
@@ -657,16 +657,21 @@ class LParen(Paren):
 	
 	def sync(self, root: Expression = None, give_up: bool = False):
 		assert root is not None, "Paren must always be inside a Row."
+		neighbors = root.all_neighbors_right(self)
+		
+		self.baseline = 0
+		self.height = 1
+		
+		if not neighbors:
+			return
 		
 		if give_up:
-			rr = row(*root.all_neighbors_left(self)).render()
+			rr = row(*neighbors).render()
 			self.baseline = rr.baseline
 			self.height = len(rr.lines)
 			return
 		
-		self.height = 1
-		self.baseline = 0
-		for expr in root.all_neighbors_right(self):
+		for expr in neighbors:
 			if isinstance(expr, RParen) and not expr.paired:
 				expr.height = self.height
 				expr.baseline = self.baseline
@@ -702,16 +707,21 @@ class RParen(Paren):
 	
 	def sync(self, root: Expression = None, give_up: bool = False):
 		assert root is not None, "Paren must always be inside a Row."
+		neighbors = root.all_neighbors_left(self)
+		
+		self.baseline = 0
+		self.height = 1
+		
+		if not neighbors:
+			return
 		
 		if give_up:
-			rr = row(*root.all_neighbors_left(self)).render()
+			rr = row(*neighbors).render()
 			self.baseline = rr.baseline
 			self.height = len(rr.lines)
 			return
 		
-		self.height = 1
-		self.baseline = 0
-		for expr in reversed(root.all_neighbors_left(self)):
+		for expr in reversed(neighbors):
 			if isinstance(expr, LParen) and not expr.paired:
 				expr.height = self.height
 				expr.baseline = self.baseline
