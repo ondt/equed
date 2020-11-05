@@ -168,6 +168,7 @@ class Expression:
 	
 	def parentof(self, child: Expression) -> Optional[Expression]:
 		assert isinstance(child, Expression)
+		assert sum(ch is child for ch in self.bfs_children()) == 1
 		for parent in self.bfs_children():
 			for c in parent.children():
 				if c is child:  # `child in parent.children()` uses `==` as well as `is`
@@ -177,6 +178,8 @@ class Expression:
 	def replace(self, old: Expression, new: Expression) -> bool:
 		assert isinstance(old, Expression)
 		assert isinstance(new, Expression)
+		assert sum(ch is old for ch in self.bfs_children()) == 1
+		assert sum(ch is new for ch in self.bfs_children()) == 1
 		for parent in self.bfs_children():
 			for child in parent.children():
 				if child is old:
@@ -187,6 +190,7 @@ class Expression:
 	
 	def delete(self, old: Expression) -> bool:
 		assert isinstance(old, Expression)
+		assert sum(ch is old for ch in self.bfs_children()) == 1
 		for parent in self.bfs_children():
 			for child in parent.children():
 				if child is old:
@@ -196,24 +200,28 @@ class Expression:
 		return False
 	
 	def neighbor_left(self, node: Expression, skip: int = 1) -> Optional[Expression]:
+		assert sum(ch is node for ch in self.bfs_children()) == 1
 		parent = self.parentof(node)
 		assert isinstance(parent, Row)
 		index = obj_index(parent.items, node) - skip
 		return parent.items[index] if index in range(len(parent.items)) else None
 	
 	def neighbor_right(self, node: Expression, skip: int = 1) -> Optional[Expression]:
+		assert sum(ch is node for ch in self.bfs_children()) == 1
 		parent = self.parentof(node)
 		assert isinstance(parent, Row)
 		index = obj_index(parent.items, node) + skip
 		return parent.items[index] if index in range(len(parent.items)) else None
 	
 	def all_neighbors_left(self, node: Expression, skip: int = 1) -> List[Expression]:
+		assert sum(ch is node for ch in self.bfs_children()) == 1
 		parent = self.parentof(node)
 		assert isinstance(parent, Row)
 		index = obj_index(parent.items, node) - skip
 		return parent.items[:index]
 	
 	def all_neighbors_right(self, node: Expression, skip: int = 1) -> List[Expression]:
+		assert sum(ch is node for ch in self.bfs_children()) == 1
 		parent = self.parentof(node)
 		assert isinstance(parent, Row)
 		index = obj_index(parent.items, node) + skip
@@ -493,7 +501,7 @@ class Row(Expression):
 	def simplify(self):  # todo: remove the abstract method?
 		output = []
 		
-		# flatten rows
+		# flatten rows todo: manage nested rows
 		for child in self.children():
 			if isinstance(child, Row):
 				output.extend(child.items)
