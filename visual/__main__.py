@@ -87,18 +87,23 @@ class ScreenOffset:  # todo: a way to put the cursor at the end, without knowing
 	row: int
 	col: int
 	
+	
 	def __post_init__(self):
 		assert self.row >= 0
 		assert self.col >= 0
 	
+	
 	def left(self, distance: int):
 		return ScreenOffset(self.row, self.col - distance)
+	
 	
 	def right(self, distance: int):
 		return ScreenOffset(self.row, self.col + distance)
 	
+	
 	def up(self, distance: int):
 		return ScreenOffset(self.row - distance, self.col)
+	
 	
 	def down(self, distance: int):
 		return ScreenOffset(self.row + distance, self.col)
@@ -153,6 +158,7 @@ class RenderOutput:
 	width: int
 	cursor: Optional[ScreenOffset]
 	
+	
 	def __post_init__(self):  # sanity check
 		assert 1 == len(set(len(x) for x in self.lines)), "All lines must have the same length"
 		assert 1 == len(set(len(x) for x in self.colors)), "All colors must have the same length"
@@ -166,13 +172,16 @@ class Expression:
 	def children(self) -> List[Expression]:
 		raise NotImplementedError
 	
+	
 	def bfs_children(self) -> List[Expression]:
 		return list(self._bfs_children())
+	
 	
 	def _bfs_children(self) -> Iterator[Expression]:
 		yield self
 		for child in self.children():
 			yield from child._bfs_children()
+	
 	
 	def parentof(self, child: Expression) -> Optional[Expression]:
 		assert isinstance(child, Expression)
@@ -182,6 +191,7 @@ class Expression:
 				if c is child:  # `child in parent.children()` uses `==` as well as `is`
 					return parent
 		return None
+	
 	
 	# def replace(self, old: Expression, new: Expression) -> bool:
 	# 	assert isinstance(old, Expression)
@@ -237,12 +247,15 @@ class Expression:
 	def width(self, root: Row = None, rparent: Row = None, parent: Expression = None):  # SLOW!
 		return len(self.render(root=root, rparent=rparent, parent=parent).lines[0])
 	
+	
 	def render(self, root: Row = None, rparent: Row = None, parent: Expression = None) -> RenderOutput:
 		raise NotImplementedError
+	
 	
 	def simplify(self, root: Row = None, rparent: Row = None, parent: Expression = None):
 		for child in self.children():
 			child.simplify(root, rparent, self)
+	
 	
 	@profile
 	def display(self, cursor: bool = True, colormap: bool = True, code: bool = True, dump: bool = True):  # todo: curses
@@ -296,6 +309,7 @@ class Expression:
 	def __str__(self):
 		raise NotImplementedError
 	
+	
 	def __repr__(self):
 		raise NotImplementedError
 
@@ -306,8 +320,10 @@ class Text(Expression):
 		self.text: str = text
 		self.cursor: Optional[ScreenOffset] = cursor
 	
+	
 	def children(self) -> List[Expression]:
 		return []
+	
 	
 	def colorize(self, root: Row = None, rparent: Row = None, parent: Expression = None) -> List[str]:  # list of colors
 		output = []
@@ -323,6 +339,7 @@ class Text(Expression):
 		
 		# todo: context-aware highlighting (string before paren is function, etc)
 		return output
+	
 	
 	def render(self, root: Row = None, rparent: Row = None, parent: Expression = None) -> RenderOutput:
 		assert isinstance(root, Row) and isinstance(rparent, Row)
@@ -458,6 +475,7 @@ class Text(Expression):
 	def __str__(self):
 		return self.text
 	
+	
 	def __repr__(self):
 		cur = ""
 		if self.cursor:
@@ -472,8 +490,10 @@ class Row(Expression):
 		self.items = items
 		self.simplify()
 	
+	
 	def children(self) -> List[Expression]:
 		return self.items
+	
 	
 	def replace(self, old: Expression, new: Expression):
 		assert isinstance(old, Expression)
@@ -481,30 +501,36 @@ class Row(Expression):
 		assert sum(ch is old for ch in self.items) == 1
 		self.items[obj_index(self.items, old)] = new
 	
+	
 	def delete(self, old: Expression):
 		assert isinstance(old, Expression)
 		assert sum(ch is old for ch in self.bfs_children()) == 1
 		self.items.pop(obj_index(self.items, old))
+	
 	
 	def neighbor_left(self, node: Expression, skip: int = 1) -> Optional[Expression]:
 		assert sum(ch is node for ch in self.items) == 1
 		index = obj_index(self.items, node) - skip
 		return self.items[index] if index in range(len(self.items)) else None
 	
+	
 	def neighbor_right(self, node: Expression, skip: int = 1) -> Optional[Expression]:
 		assert sum(ch is node for ch in self.items) == 1
 		index = obj_index(self.items, node) + skip
 		return self.items[index] if index in range(len(self.items)) else None
+	
 	
 	def all_neighbors_left(self, node: Expression, skip: int = 1) -> List[Expression]:
 		assert sum(ch is node for ch in self.items) == 1
 		index = obj_index(self.items, node) - skip
 		return self.items[:index]
 	
+	
 	def all_neighbors_right(self, node: Expression, skip: int = 1) -> List[Expression]:
 		assert sum(ch is node for ch in self.items) == 1
 		index = obj_index(self.items, node) + skip
 		return self.items[index:]
+	
 	
 	def render(self, root: Row = None, rparent: Row = None, parent: Expression = None) -> RenderOutput:
 		root = root or self
@@ -565,6 +591,7 @@ class Row(Expression):
 		
 		return RenderOutput(lines, colors, baseline, sum(r.width for r in rr), cursor)
 	
+	
 	def simplify(self, root: Row = None, rparent: Row = None, parent: Expression = None):  # todo: remove the abstract method?
 		root = root or self
 		
@@ -597,6 +624,7 @@ class Row(Expression):
 		
 		self.items = output
 	
+	
 	def press_key(self, key: str, root: Row = None, rparent: Row = None, parent: Expression = None, skip_empty: bool = True) -> bool:
 		root = root or self
 		for child in self.children():
@@ -608,6 +636,7 @@ class Row(Expression):
 	
 	def __str__(self):
 		return "".join([str(x) for x in self.items])
+	
 	
 	def __repr__(self):
 		r = [x for x in [repr(x) for x in self.items] if x != 'text()']
@@ -628,6 +657,7 @@ class Fraction(Expression):
 	
 	def children(self) -> List[Expression]:
 		return [self.numerator, self.denominator]
+	
 	
 	def render(self, root: Row = None, rparent: Row = None, parent: Expression = None) -> RenderOutput:
 		assert isinstance(root, Row) and isinstance(rparent, Row)
@@ -658,6 +688,7 @@ class Fraction(Expression):
 		
 		return RenderOutput(output, colors, baseline, w, cursor)
 	
+	
 	def press_key(self, key: str, root: Row = None, rparent: Row = None, parent: Expression = None, skip_empty: bool = True) -> bool:
 		assert isinstance(root, Row) and isinstance(rparent, Row)
 		if self.numerator.press_key(key, root, rparent, self, skip_empty): return True  # keystroke accepted
@@ -667,6 +698,7 @@ class Fraction(Expression):
 	
 	def __str__(self):
 		return f"(({str(self.numerator) or 'None'}) / ({str(self.denominator) or 'None'}))"
+	
 	
 	def __repr__(self):
 		return f"fraction({repr(self.numerator)}, {repr(self.denominator)})"
@@ -678,6 +710,7 @@ class Direction(Enum):
 	LEFT = 2
 	DOWN = 3
 	RIGHT = 4
+	
 	
 	def opposite(self) -> Direction:
 		if self == Direction.UP: return Direction.DOWN
