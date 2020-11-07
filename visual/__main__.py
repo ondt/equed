@@ -4,10 +4,12 @@ import atexit
 import itertools
 import sys
 import termios
+from abc import ABC
 from dataclasses import dataclass
 from typing import Iterable, Iterator, List, Optional, TypeVar
 
 import readchar
+from profilehooks import profile
 
 from visual import ansi, utils
 
@@ -181,56 +183,56 @@ class Expression:
 					return parent
 		return None
 	
-	def replace(self, old: Expression, new: Expression) -> bool:
-		assert isinstance(old, Expression)
-		assert isinstance(new, Expression)
-		assert sum(ch is old for ch in self.bfs_children()) == 1
-		for parent in self.bfs_children():
-			for child in parent.children():
-				if child is old:
-					assert isinstance(parent, Row)
-					parent.items[obj_index(parent.items, old)] = new
-					return True
-		return False
-	
-	def delete(self, old: Expression) -> bool:
-		assert isinstance(old, Expression)
-		assert sum(ch is old for ch in self.bfs_children()) == 1
-		for parent in self.bfs_children():
-			for child in parent.children():
-				if child is old:
-					assert isinstance(parent, Row)
-					parent.items.pop(obj_index(parent.items, old))
-					return True
-		return False
-	
-	def neighbor_left(self, node: Expression, skip: int = 1) -> Optional[Expression]:
-		assert sum(ch is node for ch in self.bfs_children()) == 1
-		parent = self.parentof(node)
-		assert isinstance(parent, Row)
-		index = obj_index(parent.items, node) - skip
-		return parent.items[index] if index in range(len(parent.items)) else None
-	
-	def neighbor_right(self, node: Expression, skip: int = 1) -> Optional[Expression]:
-		assert sum(ch is node for ch in self.bfs_children()) == 1
-		parent = self.parentof(node)
-		assert isinstance(parent, Row)
-		index = obj_index(parent.items, node) + skip
-		return parent.items[index] if index in range(len(parent.items)) else None
-	
-	def all_neighbors_left(self, node: Expression, skip: int = 1) -> List[Expression]:
-		assert sum(ch is node for ch in self.bfs_children()) == 1
-		parent = self.parentof(node)
-		assert isinstance(parent, Row)
-		index = obj_index(parent.items, node) - skip
-		return parent.items[:index]
-	
-	def all_neighbors_right(self, node: Expression, skip: int = 1) -> List[Expression]:
-		assert sum(ch is node for ch in self.bfs_children()) == 1
-		parent = self.parentof(node)
-		assert isinstance(parent, Row)
-		index = obj_index(parent.items, node) + skip
-		return parent.items[index:]
+	# def replace(self, old: Expression, new: Expression) -> bool:
+	# 	assert isinstance(old, Expression)
+	# 	assert isinstance(new, Expression)
+	# 	assert sum(ch is old for ch in self.bfs_children()) == 1
+	# 	for parent in self.bfs_children():
+	# 		for child in parent.children():
+	# 			if child is old:
+	# 				assert isinstance(parent, Row)
+	# 				parent.items[obj_index(parent.items, old)] = new
+	# 				return True
+	# 	return False
+	#
+	# def delete(self, old: Expression) -> bool:
+	# 	assert isinstance(old, Expression)
+	# 	assert sum(ch is old for ch in self.bfs_children()) == 1
+	# 	for parent in self.bfs_children():
+	# 		for child in parent.children():
+	# 			if child is old:
+	# 				assert isinstance(parent, Row)
+	# 				parent.items.pop(obj_index(parent.items, old))
+	# 				return True
+	# 	return False
+	#
+	# def neighbor_left(self, node: Expression, skip: int = 1) -> Optional[Expression]:
+	# 	assert sum(ch is node for ch in self.bfs_children()) == 1
+	# 	parent = self.parentof(node)
+	# 	assert isinstance(parent, Row)
+	# 	index = obj_index(parent.items, node) - skip
+	# 	return parent.items[index] if index in range(len(parent.items)) else None
+	#
+	# def neighbor_right(self, node: Expression, skip: int = 1) -> Optional[Expression]:
+	# 	assert sum(ch is node for ch in self.bfs_children()) == 1
+	# 	parent = self.parentof(node)
+	# 	assert isinstance(parent, Row)
+	# 	index = obj_index(parent.items, node) + skip
+	# 	return parent.items[index] if index in range(len(parent.items)) else None
+	#
+	# def all_neighbors_left(self, node: Expression, skip: int = 1) -> List[Expression]:
+	# 	assert sum(ch is node for ch in self.bfs_children()) == 1
+	# 	parent = self.parentof(node)
+	# 	assert isinstance(parent, Row)
+	# 	index = obj_index(parent.items, node) - skip
+	# 	return parent.items[:index]
+	#
+	# def all_neighbors_right(self, node: Expression, skip: int = 1) -> List[Expression]:
+	# 	assert sum(ch is node for ch in self.bfs_children()) == 1
+	# 	parent = self.parentof(node)
+	# 	assert isinstance(parent, Row)
+	# 	index = obj_index(parent.items, node) + skip
+	# 	return parent.items[index:]
 	
 	def width(self, root: Row = None, rparent: Row = None, parent: Expression = None):  # SLOW!
 		return len(self.render(root=root, rparent=rparent, parent=parent).lines[0])
@@ -507,29 +509,42 @@ class Row(Expression):
 	def render(self, root: Row = None, rparent: Row = None, parent: Expression = None) -> RenderOutput:
 		root = root or self
 		
-		# reset the paren pairing
+		# reset all the parentheses
 		for paren in self.children():
 			if isinstance(paren, Paren):
-				paren.paired = False
-		
-		# sync/pair parenthesis
-		for paren in reversed(self.children()):
-			if isinstance(paren, LParen):
-				paren.find_pair(root=root, rparent=self, parent=parent)
-		
-		for paren in self.children():
-			if isinstance(paren, RParen) and not paren.paired:
-				paren.find_pair(root=root, rparent=self, parent=parent, give_up=True)
+				paren.reset()
 		
 		###############################################################################################
 		
+		# render, DO NOT ALIGN BASELINES
 		rr = [x.render(root=root, rparent=self, parent=parent) for x in self.items]
-		baseline = max(r.baseline for r in rr)
 		
+		###############################################################################################
+		
+		# sync/pair parenthesis (using the rendered and UNALIGNED output)
+		for paren in reversed(self.children()):
+			if isinstance(paren, LParen):
+				paren.find_pair(rr, root=root, rparent=self, parent=parent)
+		
+		for paren in self.children():
+			if isinstance(paren, RParen) and not paren.paired:
+				paren.find_pair(rr, root=root, rparent=self, parent=parent, give_up=True)
+		
+		###############################################################################################
+		
+		# re-render only the parentheses
+		for index, paren in enumerate(self.items):
+			if isinstance(paren, Paren):
+				rr[index] = paren.render(root=root, rparent=self, parent=parent)
+		
+		# ALIGN BASELINES
+		baseline = max(r.baseline for r in rr)
 		for r in rr:
 			for _ in range(baseline - r.baseline):  # todo: extend
 				r.lines.insert(0, " " * r.width)  # baseline top padding
 				r.colors.insert(0, list_align([""], r.width))  # baseline top padding
+		
+		###############################################################################################
 		
 		width_so_far = 0
 		for r in rr:
@@ -658,8 +673,13 @@ class Fraction(Expression):
 
 
 
-class Paren(Expression):
-	def __init__(self):
+class Paren(Expression, ABC):
+	def __init__(self) -> None:
+		self.paired = False
+		self.height = 1
+		self.baseline = 0
+	
+	def reset(self) -> None:
 		self.paired = False
 		self.height = 1
 		self.baseline = 0
@@ -667,7 +687,7 @@ class Paren(Expression):
 	def children(self) -> List[Expression]:
 		return []
 	
-	def find_pair(self, root: Row = None, rparent: Row = None, parent: Expression = None, give_up: bool = False):
+	def find_pair(self, rr_unaligned: List[RenderOutput], root: Row = None, rparent: Row = None, parent: Expression = None, give_up: bool = False) -> None:
 		raise NotImplementedError
 
 
@@ -693,25 +713,26 @@ class LParen(Paren):
 		return False
 	
 	
-	def find_pair(self, root: Row = None, rparent: Row = None, parent: Expression = None, give_up: bool = False):
+	def find_pair(self, rr_unaligned: List[RenderOutput], root: Row = None, rparent: Row = None, parent: Expression = None, give_up: bool = False) -> None:
 		assert isinstance(root, Row) and isinstance(rparent, Row)
 		assert root is not None, "Paren must always be inside a Row."
 		
-		neighbors = rparent.all_neighbors_right(self)
+		expr_neighbors = rparent.all_neighbors_right(self)
+		rr_neighbors = rr_unaligned[obj_index(rparent.items, self) + 1:]
 		
 		self.baseline = 0
 		self.height = 1
 		
-		if not neighbors:
+		if not rr_neighbors:
 			return
 		
 		if give_up:
-			rr = row(*neighbors).render(root=root, rparent=rparent, parent=parent)
-			self.baseline = rr.baseline
-			self.height = len(rr.lines)
+			self.baseline = max(r.baseline for r in rr_unaligned)
+			for r in rr_unaligned:
+				self.height = max(self.height, (self.baseline - r.baseline) + len(r.lines))
 			return
 		
-		for expr in neighbors:
+		for expr, r in zip(expr_neighbors, rr_neighbors):
 			if isinstance(expr, RParen) and not expr.paired:
 				expr.height = self.height
 				expr.baseline = self.baseline
@@ -719,9 +740,8 @@ class LParen(Paren):
 				self.paired = True
 				break
 			
-			rr = expr.render(root=root, rparent=rparent, parent=parent)
-			self.baseline = max(self.baseline, rr.baseline)
-			self.height = max(self.height, len(rr.lines) + abs(self.baseline - rr.baseline))
+			self.baseline = max(self.baseline, r.baseline)
+			self.height = max(self.height, len(r.lines) + abs(self.baseline - r.baseline))
 	
 	
 	def __str__(self):
@@ -750,25 +770,26 @@ class RParen(Paren):
 	def press_key(self, key: str, root: Row = None, rparent: Row = None, parent: Expression = None, skip_empty: bool = True) -> bool:
 		return False
 	
-	def find_pair(self, root: Row = None, rparent: Row = None, parent: Expression = None, give_up: bool = False):
+	def find_pair(self, rr_unaligned: List[RenderOutput], root: Row = None, rparent: Row = None, parent: Expression = None, give_up: bool = False) -> None:
 		assert isinstance(root, Row) and isinstance(rparent, Row)
 		assert root is not None, "Paren must always be inside a Row."
 		
-		neighbors = rparent.all_neighbors_left(self)
+		expr_neighbors = reversed(rparent.all_neighbors_left(self))
+		rr_neighbors = reversed(rr_unaligned[:obj_index(rparent.items, self) - 1])
 		
 		self.baseline = 0
 		self.height = 1
 		
-		if not neighbors:
+		if not rr_neighbors:
 			return
 		
 		if give_up:
-			rr = row(*neighbors).render(root=root, rparent=rparent, parent=parent)
-			self.baseline = rr.baseline
-			self.height = len(rr.lines)
+			self.baseline = max(r.baseline for r in rr_unaligned)
+			for r in rr_unaligned:
+				self.height = max(self.height, (self.baseline - r.baseline) + len(r.lines))
 			return
 		
-		for expr in reversed(neighbors):
+		for expr, r in zip(expr_neighbors, rr_neighbors):
 			if isinstance(expr, LParen) and not expr.paired:
 				expr.height = self.height
 				expr.baseline = self.baseline
@@ -776,10 +797,8 @@ class RParen(Paren):
 				self.paired = True
 				break
 			
-			rr = expr.render(root=root, rparent=rparent, parent=parent)
-			self.baseline = max(self.baseline, rr.baseline)
-			self.height = max(self.height, len(rr.lines) + abs(self.baseline - rr.baseline))
-	
+			self.baseline = max(self.baseline, r.baseline)
+			self.height = max(self.height, len(r.lines) + abs(self.baseline - r.baseline))
 	
 	def __str__(self):
 		return ")"
