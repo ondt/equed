@@ -242,6 +242,7 @@ class Expression:
 		for child in self.children():
 			child.simplify(root, rparent, self)
 	
+	@profile
 	def display(self, cursor: bool = True, colormap: bool = True, code: bool = True, dump: bool = True):  # todo: curses
 		"""Render the expression onto the screen"""
 		r = self.render()
@@ -350,27 +351,22 @@ class Text(Expression):
 			elif key == "/":  # todo: shift-/ to split?
 				eprint(ansi.yellow("INSERTING FRACTION"))
 				if FRAC_INS_METHOD == "maple":
-					root.replace(self, row(fraction(text(before_cursor), text(cursor=ScreenOffset(0, 0))), text(after_cursor)))
+					rparent.replace(self, row(fraction(text(before_cursor), text(cursor=ScreenOffset(0, 0))), text(after_cursor)))
 				elif FRAC_INS_METHOD == "split":
-					root.replace(self, fraction(text(before_cursor), text(after_cursor, cursor=ScreenOffset(0, 0))))
+					rparent.replace(self, fraction(text(before_cursor), text(after_cursor, cursor=ScreenOffset(0, 0))))
 				elif FRAC_INS_METHOD == "empty":
-					root.replace(self, row(text(before_cursor), fraction(text(cursor=ScreenOffset(0, 0)), text()), text(after_cursor)))
+					rparent.replace(self, row(text(before_cursor), fraction(text(cursor=ScreenOffset(0, 0)), text()), text(after_cursor)))
 				else:
 					eprint(ansi.red("FRAC_INS_METHOD contains invalid value"))
 					exit(1)
 			
-			
 			elif key == "(":
 				eprint(ansi.yellow("INSERTING LPAREN"))
-				parent = root.parentof(self)
-				assert isinstance(parent, Row)
-				root.replace(self, row(text(before_cursor), lparen(), text(after_cursor, cursor=ScreenOffset(0, 0))))
+				rparent.replace(self, row(text(before_cursor), lparen(), text(after_cursor, cursor=ScreenOffset(0, 0))))
 			
 			elif key == ")":
 				eprint(ansi.yellow("INSERTING RPAREN"))
-				parent = root.parentof(self)
-				assert isinstance(parent, Row)
-				root.replace(self, row(text(before_cursor), rparen(), text(after_cursor, cursor=ScreenOffset(0, 0))))
+				rparent.replace(self, row(text(before_cursor), rparen(), text(after_cursor, cursor=ScreenOffset(0, 0))))
 			
 			else:
 				eprint(ansi.yellow(f"INSERTING TEXT: '{key}'"))
@@ -378,59 +374,55 @@ class Text(Expression):
 				self.cursor = self.cursor.right(1)
 		
 		if key == readchar.key.BACKSPACE:
-			# cursor at the beginning of the text field means some special del procedure is to be executed
-			if self.cursor.col == 0:
+			if self.cursor.col > 0:  # there is at least one deletable char
+				eprint(ansi.yellow(f"REMOVE: '{self.text[self.cursor.col - 1]}'"))
+				self.text = self.text[:self.cursor.col - 1] + self.text[self.cursor.col:]
+				self.cursor = self.cursor.left(1)
+				assert self.cursor.col >= 0
+			
+			else:  # cursor at the beginning of the text field means some special del procedure is to be executed
 				# try to remove lparen or rparen
-				neighbor_left = root.neighbor_left(self)
+				neighbor_left = rparent.neighbor_left(self)
 				if isinstance(neighbor_left, Paren):
 					eprint(ansi.yellow("REMOVING PAREN"))
-					root.delete(neighbor_left)
+					rparent.delete(neighbor_left)
 					return True  # keystroke accepted
 				
 				# next to a fraction --> jump to the denominator and press BACKSPACE
 				if isinstance(neighbor_left, Fraction):
-					root.press_key(readchar.key.LEFT, root)
+					root.press_key(readchar.key.LEFT)
 					if MAPLE_FRAC_DEL:
-						root.press_key(readchar.key.BACKSPACE, root)
+						root.press_key(readchar.key.BACKSPACE)
 					return True  # keystroke accepted
 				
 				# try to remove fraction
-				parent1 = root.parentof(self)
-				parent2 = root.parentof(parent1)
-				if isinstance(parent1, Row) and isinstance(parent2, Fraction) and neighbor_left is None:
-					if parent1 is parent2.denominator:
+				if isinstance(parent, Fraction) and neighbor_left is None:
+					if rparent is parent.denominator:
 						eprint(ansi.yellow("REMOVING FRACTION"))
-						frac_contents = parent2.numerator.items + parent2.denominator.items
-						root.replace(parent2, row(*frac_contents))
+						frac_contents = parent.numerator.items + parent.denominator.items
+						root.parentof(parent).replace(parent, row(*frac_contents))
 					else:  # fraction will not get deleted if backspace was pressed inside the numerator
-						root.press_key(readchar.key.LEFT, root)
+						root.press_key(readchar.key.LEFT)
 					return True  # keystroke accepted
-			
-			else:
-				eprint(ansi.yellow(f"REMOVE: '{self.text[self.cursor.col - 1]}'"))
-				self.text: str = self.text[:self.cursor.col - 1] + self.text[self.cursor.col:]
-				self.cursor = self.cursor.left(1)
-				assert self.cursor.col >= 0
 		
 		if key == readchar.key.LEFT:
 			if self.cursor.col > 0:
 				self.cursor = self.cursor.left(1)
 			else:
-				root.press_key(readchar.key.UP, root, skip_empty=False)
+				root.press_key(readchar.key.UP, skip_empty=False)
 		
 		if key == readchar.key.RIGHT:
 			if self.cursor.col < self.width(root, rparent, parent):  # + one space at the end
 				self.cursor = self.cursor.right(1)
 			else:
 				if SKIP_DENOMINATOR:  # maple, mathquill: RIGHT inside numerator causes the cursor to jump right after the fraction
-					parent = root.parentof(root.parentof(self))
-					if isinstance(parent, Fraction) and root.neighbor_right(self) is None:  # if inside fraction and next to me is nothing (cursor is at the end of numerator)
+					if isinstance(parent, Fraction) and rparent.neighbor_right(self) is None:  # if inside fraction and next to me is nothing (cursor is at the end of numerator)
 						self.cursor = None
-						root.neighbor_right(parent).cursor = ScreenOffset(0, 0)  # start of the text field
+						root.parentof(parent).neighbor_right(parent).cursor = ScreenOffset(0, 0)  # start of the text field
 					else:
-						root.press_key(readchar.key.DOWN, root, skip_empty=False)
+						root.press_key(readchar.key.DOWN, skip_empty=False)
 				else:
-					root.press_key(readchar.key.DOWN, root, skip_empty=False)
+					root.press_key(readchar.key.DOWN, skip_empty=False)
 		
 		if key == readchar.key.UP:
 			bfs_line = root.bfs_children()
@@ -480,6 +472,37 @@ class Row(Expression):
 	
 	def children(self) -> List[Expression]:
 		return self.items
+	
+	def replace(self, old: Expression, new: Expression):
+		assert isinstance(old, Expression)
+		assert isinstance(new, Expression)
+		assert sum(ch is old for ch in self.items) == 1
+		self.items[obj_index(self.items, old)] = new
+	
+	def delete(self, old: Expression):
+		assert isinstance(old, Expression)
+		assert sum(ch is old for ch in self.bfs_children()) == 1
+		self.items.pop(obj_index(self.items, old))
+	
+	def neighbor_left(self, node: Expression, skip: int = 1) -> Optional[Expression]:
+		assert sum(ch is node for ch in self.items) == 1
+		index = obj_index(self.items, node) - skip
+		return self.items[index] if index in range(len(self.items)) else None
+	
+	def neighbor_right(self, node: Expression, skip: int = 1) -> Optional[Expression]:
+		assert sum(ch is node for ch in self.items) == 1
+		index = obj_index(self.items, node) + skip
+		return self.items[index] if index in range(len(self.items)) else None
+	
+	def all_neighbors_left(self, node: Expression, skip: int = 1) -> List[Expression]:
+		assert sum(ch is node for ch in self.items) == 1
+		index = obj_index(self.items, node) - skip
+		return self.items[:index]
+	
+	def all_neighbors_right(self, node: Expression, skip: int = 1) -> List[Expression]:
+		assert sum(ch is node for ch in self.items) == 1
+		index = obj_index(self.items, node) + skip
+		return self.items[index:]
 	
 	def render(self, root: Row = None, rparent: Row = None, parent: Expression = None) -> RenderOutput:
 		root = root or self
@@ -674,7 +697,7 @@ class LParen(Paren):
 		assert isinstance(root, Row) and isinstance(rparent, Row)
 		assert root is not None, "Paren must always be inside a Row."
 		
-		neighbors = root.all_neighbors_right(self)
+		neighbors = rparent.all_neighbors_right(self)
 		
 		self.baseline = 0
 		self.height = 1
@@ -731,7 +754,7 @@ class RParen(Paren):
 		assert isinstance(root, Row) and isinstance(rparent, Row)
 		assert root is not None, "Paren must always be inside a Row."
 		
-		neighbors = root.all_neighbors_left(self)
+		neighbors = rparent.all_neighbors_left(self)
 		
 		self.baseline = 0
 		self.height = 1
