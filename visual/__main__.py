@@ -510,9 +510,9 @@ class Row(Expression):
 		root = root or self
 		
 		# reset all the parentheses
-		for paren in self.children():
-			if isinstance(paren, Paren):
-				paren.reset()
+		for par in self.children():
+			if isinstance(par, Paren):
+				par.reset()
 		
 		###############################################################################################
 		
@@ -521,21 +521,21 @@ class Row(Expression):
 		
 		###############################################################################################
 		
-		# sync/pair parenthesis (using the rendered and UNALIGNED output)
-		for paren in reversed(self.children()):
-			if isinstance(paren, Paren) and paren.dir == Direction.LEFT:
-				paren.find_pair(rr, root=root, rparent=self, parent=parent)
+		# sync/pair the parenthesis (using the rendered and UNALIGNED output)
+		for par in reversed(self.children()):
+			if isinstance(par, Paren) and par.dir == Direction.LEFT:
+				par.find_pair(rr, rparent=self)
 		
-		for paren in self.children():
-			if isinstance(paren, Paren) and paren.dir == Direction.RIGHT and not paren.paired:
-				paren.find_pair(rr, root=root, rparent=self, parent=parent, give_up=True)
+		for par in self.children():
+			if isinstance(par, Paren) and par.dir == Direction.RIGHT:
+				par.find_pair(rr, rparent=self)
 		
 		###############################################################################################
 		
 		# re-render only the parentheses
-		for index, paren in enumerate(self.items):
-			if isinstance(paren, Paren):
-				rr[index] = paren.render(root=root, rparent=self, parent=parent)
+		for index, par in enumerate(self.items):
+			if isinstance(par, Paren):
+				rr[index] = par.render(root=root, rparent=self, parent=parent)
 		
 		# ALIGN BASELINES
 		baseline = max(r.baseline for r in rr)
@@ -734,39 +734,25 @@ class Paren(Expression):
 		return False
 	
 	
-	def find_pair(self, rr_unaligned: List[RenderOutput], root: Row = None, rparent: Row = None, parent: Expression = None, give_up: bool = False) -> None:
-		assert isinstance(root, Row) and isinstance(rparent, Row)
-		
-		self.baseline = 0
-		self.height = 1
-		
+	def find_pair(self, rr_unaligned: List[RenderOutput], rparent: Row) -> None:
 		if self.dir == Direction.LEFT:
-			expr_neighbors = rparent.all_neighbors_right(self)
-			rr_neighbors = rr_unaligned[obj_index(rparent.items, self) + 1:]
+			neighbors_expr = rparent.all_neighbors_right(self)
+			neighbors_rr = rr_unaligned[obj_index(rparent.items, self) + 1:]
 		elif self.dir == Direction.RIGHT:
-			expr_neighbors = list(reversed(rparent.all_neighbors_left(self)))
-			rr_neighbors = list(reversed(rr_unaligned[:obj_index(rparent.items, self) - 1]))
+			neighbors_expr = list(reversed(rparent.all_neighbors_left(self)))
+			neighbors_rr = list(reversed(rr_unaligned[:obj_index(rparent.items, self) - 1]))
 		else:
 			raise AssertionError
 		
-		if not expr_neighbors:
-			return
-		
-		if give_up:
-			self.baseline = max(r.baseline for r in rr_unaligned)
-			for rr in rr_unaligned:
-				self.height = max(self.height, (self.baseline - rr.baseline) + len(rr.lines))
-		else:
-			for expr, rr in zip(expr_neighbors, rr_neighbors):
-				if isinstance(expr, Paren) and not expr.paired and expr.dir == self.dir.opposite():
-					expr.height = self.height
-					expr.baseline = self.baseline
-					expr.paired = True
-					self.paired = True
-					break
-				
-				self.baseline = max(self.baseline, rr.baseline)
-				self.height = max(self.height, len(rr.lines) + abs(self.baseline - rr.baseline))
+		self.baseline = 0
+		index = 0
+		for index, (expr, rr) in enumerate(zip(neighbors_expr, neighbors_rr)):
+			if isinstance(expr, Paren) and not expr.paired and expr.dir == self.dir.opposite():
+				expr.paired = True
+				break
+			
+			self.baseline = max(self.baseline, rr.baseline)
+		self.height = max([1] + [(self.baseline - r.baseline) + len(r.lines) for r in neighbors_rr[:index]])
 	
 	
 	def __str__(self) -> str:
