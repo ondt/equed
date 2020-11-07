@@ -4,8 +4,8 @@ import atexit
 import itertools
 import sys
 import termios
-from abc import ABC
 from dataclasses import dataclass
+from enum import Enum
 from typing import Iterable, Iterator, List, Optional, TypeVar
 
 import readchar
@@ -523,11 +523,11 @@ class Row(Expression):
 		
 		# sync/pair parenthesis (using the rendered and UNALIGNED output)
 		for paren in reversed(self.children()):
-			if isinstance(paren, LParen):
+			if isinstance(paren, Paren) and paren.dir == Direction.LEFT:
 				paren.find_pair(rr, root=root, rparent=self, parent=parent)
 		
 		for paren in self.children():
-			if isinstance(paren, RParen) and not paren.paired:
+			if isinstance(paren, Paren) and paren.dir == Direction.RIGHT and not paren.paired:
 				paren.find_pair(rr, root=root, rparent=self, parent=parent, give_up=True)
 		
 		###############################################################################################
@@ -673,41 +673,62 @@ class Fraction(Expression):
 
 
 
-class Paren(Expression, ABC):
-	def __init__(self) -> None:
+class Direction(Enum):
+	UP = 1
+	LEFT = 2
+	DOWN = 3
+	RIGHT = 4
+	
+	def opposite(self) -> Direction:
+		if self == Direction.UP: return Direction.DOWN
+		if self == Direction.DOWN: return Direction.UP
+		if self == Direction.LEFT: return Direction.RIGHT
+		if self == Direction.RIGHT: return Direction.LEFT
+		raise ValueError
+
+
+
+class Paren(Expression):
+	def __init__(self, ptype: str) -> None:
+		assert len(ptype) == 1 and ptype in "([])"
+		self.dir: Direction = Direction.LEFT if ptype in "([{" else Direction.RIGHT
+		self.ptype = ptype
+		
 		self.paired = False
 		self.height = 1
 		self.baseline = 0
+	
 	
 	def reset(self) -> None:
 		self.paired = False
 		self.height = 1
 		self.baseline = 0
 	
+	
 	def children(self) -> List[Expression]:
 		return []
 	
-	def find_pair(self, rr_unaligned: List[RenderOutput], root: Row = None, rparent: Row = None, parent: Expression = None, give_up: bool = False) -> None:
-		raise NotImplementedError
-
-
-
-# todo: merge LParen and RParen, add [], {}
-
-class LParen(Paren):
+	
 	def render(self, root: Row = None, rparent: Row = None, parent: Expression = None) -> RenderOutput:
 		assert isinstance(root, Row) and isinstance(rparent, Row)
 		
 		if self.height == 1:
-			return RenderOutput(["("], [[PAREN_COLOR if self.paired else UNMATCHED_PAREN_COLOR]], self.baseline, width=1, cursor=None)
+			return RenderOutput([self.ptype], [[PAREN_COLOR if self.paired else UNMATCHED_PAREN_COLOR]], self.baseline, width=1, cursor=None)
 		else:
-			output = flatten([
-				"⎛",
-				["⎜"] * (self.height - 2),
-				"⎝",
-			])
+			output = []
+			if self.ptype == "(":
+				output.append("⎛")
+				output.extend(["⎜"] * (self.height - 2))
+				output.append("⎝")
+			elif self.ptype == ")":
+				output.append("⎞")
+				output.extend(["⎟"] * (self.height - 2))
+				output.append("⎠")
+			else:
+				raise AssertionError
 			
 			return RenderOutput(output, [[PAREN_COLOR if self.paired else UNMATCHED_PAREN_COLOR]] * self.height, self.baseline, width=1, cursor=None)
+	
 	
 	def press_key(self, key: str, root: Row = None, rparent: Row = None, parent: Expression = None, skip_empty: bool = True) -> bool:
 		return False
@@ -715,96 +736,45 @@ class LParen(Paren):
 	
 	def find_pair(self, rr_unaligned: List[RenderOutput], root: Row = None, rparent: Row = None, parent: Expression = None, give_up: bool = False) -> None:
 		assert isinstance(root, Row) and isinstance(rparent, Row)
-		assert root is not None, "Paren must always be inside a Row."
-		
-		expr_neighbors = rparent.all_neighbors_right(self)
-		rr_neighbors = rr_unaligned[obj_index(rparent.items, self) + 1:]
 		
 		self.baseline = 0
 		self.height = 1
 		
-		if not rr_neighbors:
-			return
-		
-		if give_up:
-			self.baseline = max(r.baseline for r in rr_unaligned)
-			for r in rr_unaligned:
-				self.height = max(self.height, (self.baseline - r.baseline) + len(r.lines))
-			return
-		
-		for expr, r in zip(expr_neighbors, rr_neighbors):
-			if isinstance(expr, RParen) and not expr.paired:
-				expr.height = self.height
-				expr.baseline = self.baseline
-				expr.paired = True
-				self.paired = True
-				break
-			
-			self.baseline = max(self.baseline, r.baseline)
-			self.height = max(self.height, len(r.lines) + abs(self.baseline - r.baseline))
-	
-	
-	def __str__(self):
-		return "("
-	
-	def __repr__(self):
-		return "lparen()"
-
-
-
-class RParen(Paren):
-	def render(self, root: Row = None, rparent: Row = None, parent: Expression = None) -> RenderOutput:
-		assert isinstance(root, Row) and isinstance(rparent, Row)
-		
-		if self.height == 1:
-			return RenderOutput([")"], [[PAREN_COLOR if self.paired else UNMATCHED_PAREN_COLOR]], self.baseline, width=1, cursor=None)
+		if self.dir == Direction.LEFT:
+			expr_neighbors = rparent.all_neighbors_right(self)
+			rr_neighbors = rr_unaligned[obj_index(rparent.items, self) + 1:]
+		elif self.dir == Direction.RIGHT:
+			expr_neighbors = list(reversed(rparent.all_neighbors_left(self)))
+			rr_neighbors = list(reversed(rr_unaligned[:obj_index(rparent.items, self) - 1]))
 		else:
-			output = flatten([
-				"⎞",
-				["⎟"] * (self.height - 2),
-				"⎠",
-			])
-			
-			return RenderOutput(output, [[PAREN_COLOR if self.paired else UNMATCHED_PAREN_COLOR]] * self.height, self.baseline, width=1, cursor=None)
-	
-	def press_key(self, key: str, root: Row = None, rparent: Row = None, parent: Expression = None, skip_empty: bool = True) -> bool:
-		return False
-	
-	def find_pair(self, rr_unaligned: List[RenderOutput], root: Row = None, rparent: Row = None, parent: Expression = None, give_up: bool = False) -> None:
-		assert isinstance(root, Row) and isinstance(rparent, Row)
-		assert root is not None, "Paren must always be inside a Row."
+			raise AssertionError
 		
-		expr_neighbors = reversed(rparent.all_neighbors_left(self))
-		rr_neighbors = reversed(rr_unaligned[:obj_index(rparent.items, self) - 1])
-		
-		self.baseline = 0
-		self.height = 1
-		
-		if not rr_neighbors:
+		if not expr_neighbors:
 			return
 		
 		if give_up:
 			self.baseline = max(r.baseline for r in rr_unaligned)
-			for r in rr_unaligned:
-				self.height = max(self.height, (self.baseline - r.baseline) + len(r.lines))
-			return
-		
-		for expr, r in zip(expr_neighbors, rr_neighbors):
-			if isinstance(expr, LParen) and not expr.paired:
-				expr.height = self.height
-				expr.baseline = self.baseline
-				expr.paired = True  # should already be paired
-				self.paired = True
-				break
-			
-			self.baseline = max(self.baseline, r.baseline)
-			self.height = max(self.height, len(r.lines) + abs(self.baseline - r.baseline))
+			for rr in rr_unaligned:
+				self.height = max(self.height, (self.baseline - rr.baseline) + len(rr.lines))
+		else:
+			for expr, rr in zip(expr_neighbors, rr_neighbors):
+				if isinstance(expr, Paren) and not expr.paired and expr.dir == self.dir.opposite():
+					expr.height = self.height
+					expr.baseline = self.baseline
+					expr.paired = True
+					self.paired = True
+					break
+				
+				self.baseline = max(self.baseline, rr.baseline)
+				self.height = max(self.height, len(rr.lines) + abs(self.baseline - rr.baseline))
 	
-	def __str__(self):
-		return ")"
 	
-	def __repr__(self):
-		return "rparen()"
+	def __str__(self) -> str:
+		return self.ptype
+	
+	
+	def __repr__(self) -> str:
+		return f'paren("{self.ptype}")'
 
 
 
@@ -818,13 +788,18 @@ def text(txt: str = "", cursor: Optional[ScreenOffset] = None) -> Row:
 
 
 
+def paren(ptype: str) -> Row:
+	return row(Paren(ptype))
+
+
+
 def lparen() -> Row:
-	return row(LParen())
+	return paren("(")
 
 
 
 def rparen() -> Row:
-	return row(RParen())
+	return paren(")")
 
 
 
