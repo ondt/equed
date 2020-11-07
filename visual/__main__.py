@@ -244,17 +244,13 @@ class Expression:
 	# 	index = obj_index(parent.items, node) + skip
 	# 	return parent.items[index:]
 	
+	
 	def width(self, root: Row = None, rparent: Row = None, parent: Expression = None):  # SLOW!
 		return len(self.render(root=root, rparent=rparent, parent=parent).lines[0])
 	
 	
 	def render(self, root: Row = None, rparent: Row = None, parent: Expression = None) -> RenderOutput:
 		raise NotImplementedError
-	
-	
-	def simplify(self, root: Row = None, rparent: Row = None, parent: Expression = None):
-		for child in self.children():
-			child.simplify(root, rparent, self)
 	
 	
 	@profile
@@ -488,7 +484,7 @@ class Text(Expression):
 class Row(Expression):
 	def __init__(self, items: List[Expression]):
 		self.items = items
-		self.simplify()
+		self.sanitize()
 	
 	
 	def children(self) -> List[Expression]:
@@ -500,12 +496,15 @@ class Row(Expression):
 		assert isinstance(new, Expression)
 		assert sum(ch is old for ch in self.items) == 1
 		self.items[obj_index(self.items, old)] = new
+		self.sanitize()
 	
 	
 	def delete(self, old: Expression):
 		assert isinstance(old, Expression)
 		assert sum(ch is old for ch in self.bfs_children()) == 1
 		self.items.pop(obj_index(self.items, old))
+		self.sanitize()
+	
 	
 	
 	def neighbor_left(self, node: Expression, skip: int = 1) -> Optional[Expression]:
@@ -592,12 +591,10 @@ class Row(Expression):
 		return RenderOutput(lines, colors, baseline, sum(r.width for r in rr), cursor)
 	
 	
-	def simplify(self, root: Row = None, rparent: Row = None, parent: Expression = None):  # todo: remove the abstract method?
-		root = root or self
-		
+	def sanitize(self) -> bool:
 		output = []
 		
-		# flatten rows todo: manage nested rows
+		# flatten rows
 		for child in self.children():
 			if isinstance(child, Row):
 				output.extend(child.items)
@@ -609,20 +606,16 @@ class Row(Expression):
 			for idx, (a, b) in enumerate(zip(output, output[1:])):
 				if isinstance(a, Text) and isinstance(b, Text):
 					if b.cursor:
-						a.cursor = ScreenOffset(0, a.width(root=root, rparent=self, parent=parent)).right(b.cursor.col)
+						a.cursor = ScreenOffset(0, a.width(root=self, rparent=self, parent=None)).right(b.cursor.col)
 					a.text = f"{a.text}{b.text}"
 					output.pop(idx + 1)
 					break
 			else:
 				break
 		
-		# continue the recursion
-		for child in output:
-			child.simplify(root=root, rparent=self, parent=parent)  # fractions only, of course
-		
-		# todo: insert space into the text between adjacent fractions
-		
+		something_happened = self.items != output
 		self.items = output
+		return something_happened
 	
 	
 	def press_key(self, key: str, root: Row = None, rparent: Row = None, parent: Expression = None, skip_empty: bool = True) -> bool:
@@ -899,8 +892,6 @@ expression = row(
 # expression = text(cursor=ScreenOffset(0, 0))
 
 while True:
-	# expression.sync()
-	# expression.simplify()  # redundant
 	expression.display()
 	
 	key = readchar.readkey()
@@ -910,6 +901,5 @@ while True:
 		break
 	
 	expression.press_key(key)
-	expression.simplify()
 
 expression.display(cursor=False)
