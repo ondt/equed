@@ -802,7 +802,7 @@ def text(txt: str = "", cursor: Optional[ScreenOffset] = None) -> Row:
 
 
 def paren(ptype: str) -> Row:
-	return row(Paren(ptype))
+	return row(text(), Paren(ptype), text())
 
 
 
