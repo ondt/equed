@@ -128,18 +128,15 @@ def list_align(ls: List[str], /, width: int) -> List[str]:
 	if width == 0:
 		return []
 	
-	out = []
-	out.extend(ls)
-	
 	left = False
-	while len(out) < width:
+	while len(ls) < width:
 		if left := not left:
-			out.append("")
+			ls.append("")
 		else:
-			out.insert(0, "")
+			ls.insert(0, "")
 	
-	assert len(out) == width, f"{len(out)} != {width}"
-	return out
+	assert len(ls) == width, f"{len(ls)} != {width}"
+	return ls
 
 
 
@@ -270,7 +267,7 @@ class Expression:
 			colored_line = []
 			
 			for col, (ch, pixel) in enumerate(zip(line, color)):
-				if VIRTUAL_CURSOR and ScreenOffset(row, col) == r.cursor:
+				if VIRTUAL_CURSOR and row == r.cursor.row and col == r.cursor.col:
 					pixel = f"{pixel}{ansi.inv}"
 				
 				colored_line.append(f"{pixel}{ch}{ansi.reset}")
@@ -590,7 +587,7 @@ class Row(Expression):
 		colors = []
 		for line_index in range(max(len(r.lines) for r in rr)):
 			l = [str_align(r.lines[line_index] if len(r.lines) > line_index else "", r.width) for r in rr]
-			c = [list_align(r.colors[line_index] if len(r.colors) > line_index else "", r.width) for r in rr]
+			c = [list_align(r.colors[line_index] if len(r.colors) > line_index else [""], r.width) for r in rr]
 			lines.append("".join(l))
 			colors.append(flatten(c))
 		
