@@ -61,7 +61,7 @@ T = TypeVar("T")
 
 
 
-def flatten(nested: List[List[T]]) -> List[T]:
+def flatten(nested: Iterable[Iterable[T]]) -> List[T]:
 	"""Non-recursive list flattener."""
 	return list(itertools.chain.from_iterable(nested))
 
@@ -586,10 +586,8 @@ class Row(Expression):
 		lines = []
 		colors = []
 		for line_index in range(max(len(r.lines) for r in rr)):
-			l = [str_align(r.lines[line_index] if len(r.lines) > line_index else "", r.width) for r in rr]
-			c = [list_align(r.colors[line_index] if len(r.colors) > line_index else [""], r.width) for r in rr]
-			lines.append("".join(l))
-			colors.append(flatten(c))
+			lines.append("".join(str_align(r.lines[line_index] if len(r.lines) > line_index else "", r.width) for r in rr))
+			colors.append(flatten(list_align(r.colors[line_index] if len(r.colors) > line_index else [""], r.width) for r in rr))
 		
 		return RenderOutput(lines, colors, baseline, sum(r.width for r in rr), cursor)
 	
@@ -631,7 +629,7 @@ class Row(Expression):
 	
 	
 	def __str__(self) -> str:
-		return "".join([str(x) for x in self.items])
+		return "".join(str(x) for x in self.items)
 	
 	
 	def __repr__(self) -> str:
@@ -672,15 +670,15 @@ class Fraction(Expression):
 		if d.cursor:
 			cursor = d.cursor.right(align_space(d.width, w)).down(baseline + 1)
 		
-		output = []
-		output.extend([str_align(l, w) for l in n.lines])
+		output: List[str] = []
+		output.extend(str_align(l, w) for l in n.lines)
 		output.append(f"╶{'─' * (w - 2)}╴" if FRAC_SHORTER_ENDS else '─' * w)
-		output.extend([str_align(l, w) for l in d.lines])
+		output.extend(str_align(l, w) for l in d.lines)
 		
-		colors = []
-		colors.extend([list_align(c, w) for c in n.colors])
+		colors: List[List[str]] = []
+		colors.extend(list_align(c, w) for c in n.colors)
 		colors.append([FRAC_COLOR] * w)
-		colors.extend([list_align(c, w) for c in d.colors])
+		colors.extend(list_align(c, w) for c in d.colors)
 		
 		return RenderOutput(output, colors, baseline, w, cursor)
 	
