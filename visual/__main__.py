@@ -67,7 +67,7 @@ def flatten(nested: List[List[T]]) -> List[T]:
 
 
 
-def obj_index(iterable: Iterable, obj: object) -> int:  # todo: use Expression.replace() instead
+def obj_index(iterable: Iterable[T], obj: T) -> int:  # todo: use Expression.replace() instead
 	"""The same as `list.index()`, but compares the actual objects using `is` instead of their values using `==`."""
 	for index, item in enumerate(iterable):
 		if item is obj:
@@ -77,8 +77,8 @@ def obj_index(iterable: Iterable, obj: object) -> int:  # todo: use Expression.r
 
 
 
-def eprint(*args, **kwargs):
-	print(*args, file=sys.stderr, **kwargs)
+def eprint(*values: object, sep: str = ' ', end: str = '\n'):
+	print(*values, sep, end, file=sys.stderr)
 	sys.stderr.flush()
 
 
@@ -89,24 +89,24 @@ class ScreenOffset:  # todo: a way to put the cursor at the end, without knowing
 	col: int
 	
 	
-	def __post_init__(self):
+	def __post_init__(self) -> None:
 		assert self.row >= 0
 		assert self.col >= 0
 	
 	
-	def left(self, distance: int):
+	def left(self, distance: int) -> ScreenOffset:
 		return ScreenOffset(self.row, self.col - distance)
 	
 	
-	def right(self, distance: int):
+	def right(self, distance: int) -> ScreenOffset:
 		return ScreenOffset(self.row, self.col + distance)
 	
 	
-	def up(self, distance: int):
+	def up(self, distance: int) -> ScreenOffset:
 		return ScreenOffset(self.row - distance, self.col)
 	
 	
-	def down(self, distance: int):
+	def down(self, distance: int) -> ScreenOffset:
 		return ScreenOffset(self.row + distance, self.col)
 
 
@@ -143,7 +143,7 @@ def list_align(ls: List[str], /, width: int) -> List[str]:
 
 
 
-def align_space(expr_width: int, target_width: int):
+def align_space(expr_width: int, target_width: int) -> int:
 	if expr_width == 0:
 		return target_width // 2
 	else:
@@ -160,7 +160,7 @@ class RenderOutput:
 	cursor: Optional[ScreenOffset]
 	
 	
-	def __post_init__(self):  # sanity check
+	def __post_init__(self) -> None:  # sanity check
 		assert 1 == len(set(len(x) for x in self.lines)), "All lines must have the same length"
 		assert 1 == len(set(len(x) for x in self.colors)), "All colors must have the same length"
 		assert len(self.lines) == len(self.colors)
@@ -246,7 +246,7 @@ class Expression:
 	# 	return parent.items[index:]
 	
 	
-	def width(self, root: Row = None, rparent: Row = None, parent: Expression = None):  # SLOW!
+	def width(self, root: Row = None, rparent: Row = None, parent: Expression = None) -> int:  # SLOW!
 		return len(self.render(root=root, rparent=rparent, parent=parent).lines[0])
 	
 	
@@ -312,11 +312,11 @@ class Expression:
 		raise NotImplementedError
 	
 	
-	def __str__(self):
+	def __str__(self) -> str:
 		raise NotImplementedError
 	
 	
-	def __repr__(self):
+	def __repr__(self) -> str:
 		raise NotImplementedError
 
 
@@ -478,11 +478,11 @@ class Text(Expression):
 	
 	
 	
-	def __str__(self):
+	def __str__(self) -> str:
 		return self.text
 	
 	
-	def __repr__(self):
+	def __repr__(self) -> str:
 		cur = ""
 		if self.cursor:
 			cur = (", " if self.text else "") + f"cursor=ScreenOffset({self.cursor.row}, {self.cursor.col})"
@@ -501,7 +501,7 @@ class Row(Expression):
 		return self.items
 	
 	
-	def replace(self, old: Expression, new: Expression):
+	def replace(self, old: Expression, new: Expression) -> None:
 		assert isinstance(old, Expression)
 		assert isinstance(new, Expression)
 		assert sum(ch is old for ch in self.items) == 1
@@ -509,7 +509,7 @@ class Row(Expression):
 		self.sanitize()
 	
 	
-	def delete(self, old: Expression):
+	def delete(self, old: Expression) -> None:
 		assert isinstance(old, Expression)
 		assert sum(ch is old for ch in self.bfs_children()) == 1
 		self.items.pop(obj_index(self.items, old))
@@ -637,11 +637,11 @@ class Row(Expression):
 	
 	
 	
-	def __str__(self):
+	def __str__(self) -> str:
 		return "".join([str(x) for x in self.items])
 	
 	
-	def __repr__(self):
+	def __repr__(self) -> str:
 		r = [x for x in [repr(x) for x in self.items] if x != 'text()']
 		if len(r) == 1:
 			return r[0]
@@ -699,11 +699,11 @@ class Fraction(Expression):
 		return False  # not accepted yet... (dead end)
 	
 	
-	def __str__(self):
+	def __str__(self) -> str:
 		return f"(({str(self.numerator) or 'None'}) / ({str(self.denominator) or 'None'}))"
 	
 	
-	def __repr__(self):
+	def __repr__(self) -> str:
 		return f"fraction({repr(self.numerator)}, {repr(self.denominator)})"
 
 
