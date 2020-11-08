@@ -1,6 +1,6 @@
 # NAME
 `visual-python` - Visual REPL for Python (2D formula renderer and editor with syntax highlighting) (to be used
- together with sympy et al.)
+ together with sympy, etc)
 
 
 
@@ -11,7 +11,7 @@
 
 
 # FEATURES
-Status: **proof of concept**
+Status: **proof of concept (the editing works!)**
 - [x] baselines
 - [x] syntax highlighting
 - [x] code execution
