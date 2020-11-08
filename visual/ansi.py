@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from typing import List, Tuple, Union
 
 
@@ -14,19 +15,25 @@ class Ansi:
 	def __init__(self, codes: Union[int, List[Tuple[int, int]]], off_code: int = 0):
 		self.codes: List[Tuple[int, int]] = [(codes, off_code)] if isinstance(codes, int) else codes
 	
+	
+	@lru_cache
 	def __str__(self) -> str:
 		return f"\033[{';'.join([str(c[0]) for c in self.codes])}m"
 	
+	
 	def __invert__(self) -> Ansi:
 		return Ansi([(c[1], c[0]) for c in self.codes])
+	
 	
 	def __ror__(self, other: Ansi) -> Ansi:  # for sum() to work
 		if other == 0:
 			return self
 	
+	
 	def __or__(self, other: Ansi) -> Ansi:
 		if isinstance(other, Ansi):
 			return Ansi(self.codes + other.codes)
+	
 	
 	def __call__(self, text: str) -> str:
 		return f"{self}{text}{~self}"
