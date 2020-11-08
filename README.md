@@ -45,6 +45,7 @@ Status: **proof of concept**
 - **Rendering**
     - Fraction padding
     - Fraction shorter line ends
+    - Virtual cursor
 - **Syntax highlighting colors**
     - Number
     - Text

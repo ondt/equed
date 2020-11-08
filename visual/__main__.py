@@ -21,6 +21,7 @@ FRAC_INS_METHOD = "maple"  # possible values: maple, split, empty
 # rendering
 FRAC_PADDING = 1
 FRAC_SHORTER_ENDS = True
+VIRTUAL_CURSOR = True
 
 # syntax highlighting colors
 NUM_COLOR = ansi.red
@@ -254,19 +255,28 @@ class Expression:
 	
 	
 	@profile
-	def display(self, cursor: bool = True, colormap: bool = True, code: bool = True, dump: bool = True):  # todo: curses
+	def display(self, colormap: bool = True, code: bool = True, dump: bool = True) -> None:  # todo: curses
 		"""Render the expression onto the screen"""
 		r = self.render()
 		
 		if not r.cursor:
-			eprint(ansi.red("WARNING:"), "cursor is not present")
+			raise ValueError("cursor is missing")
+		
+		if VIRTUAL_CURSOR:
+			# add a single-space border to the right edge
+			for index in range(len(r.lines)):
+				r.lines[index] += " "
+				r.colors[index].append(ansi.reset)
 		
 		output = []
-		for line, color in zip(r.lines, r.colors):
+		for row, (line, color) in enumerate(zip(r.lines, r.colors)):
 			assert len(line) == len(color)
 			colored_line = []
 			
-			for ch, pixel in zip(line, color):
+			for col, (ch, pixel) in enumerate(zip(line, color)):
+				if VIRTUAL_CURSOR and ScreenOffset(row, col) == r.cursor:
+					pixel = f"{pixel}{ansi.inv}"
+				
 				colored_line.append(f"{pixel}{ch}{ansi.reset}")
 			
 			output.append("".join(colored_line))
@@ -283,15 +293,15 @@ class Expression:
 			eval_result = utils.run(str(self))
 			output.append("")
 			output.append(f"{ansi.blue('code:')} {self}")
-			output.append(f"{eval_result}")
+			output.append("")
+			output.append(f"{ansi.blue('eval:')} {eval_result}")
 		
 		if dump:
-			output.append("")
 			output.append(f"{ansi.blue('repr:')} {repr(expression)}")
 		
 		output.append("")  # newline at the end of the output
 		
-		if cursor:
+		if not VIRTUAL_CURSOR:
 			output.append(cursor_string(r.cursor))
 		
 		# clear, home, content
@@ -861,7 +871,7 @@ expression = row(
 					),
 					text("a")
 				),
-				text("+"),
+				text(" + "),
 				parenthesis(
 					fraction(
 						text("a"),
@@ -872,7 +882,7 @@ expression = row(
 					),
 				),
 				rparen(),
-				text("aaa"),
+				text(" + ahoj"),
 			),
 		),
 		text("666666666666"),
@@ -895,11 +905,10 @@ while True:
 	expression.display()
 	
 	key = readchar.readkey()
-	eprint(f"\nkey pressed: {ansi.blue}0x{key.encode('utf8').hex()}{ansi.reset} ({list(readchar.key.__dict__.keys())[list(readchar.key.__dict__.values()).index(key)] if key in readchar.key.__dict__.values() else key})")
+	aaaaaaa = key.replace('\x1b', '^')
+	eprint(f"\nkey pressed: {ansi.yellow(aaaaaaa)} {ansi.blue}0x{key.encode('utf8').hex()}{ansi.reset} ({list(readchar.key.__dict__.keys())[list(readchar.key.__dict__.values()).index(key)] if key in readchar.key.__dict__.values() else key})")
 	
 	if key == readchar.key.CTRL_C:
 		break
 	
 	expression.press_key(key)
-
-expression.display(cursor=False)
