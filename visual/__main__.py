@@ -246,10 +246,6 @@ class Expression:
 	# 	return parent.items[index:]
 	
 	
-	def width(self, root: Row = None, rparent: Row = None, parent: Expression = None) -> int:  # SLOW!
-		return len(self.render(root=root, rparent=rparent, parent=parent).lines[0])
-	
-	
 	def render(self, root: Row = None, rparent: Row = None, parent: Expression = None) -> RenderOutput:
 		raise NotImplementedError
 	
@@ -437,7 +433,7 @@ class Text(Expression):
 				root.press_key(readchar.key.UP, skip_empty=False)
 		
 		if key == readchar.key.RIGHT:
-			if self.cursor.col < self.width(root, rparent, parent):  # + one space at the end
+			if self.cursor.col < len(self.text):  # + one space at the end
 				self.cursor = self.cursor.right(1)
 			else:
 				if SKIP_DENOMINATOR:  # maple, mathquill: RIGHT inside numerator causes the cursor to jump right after the fraction
@@ -457,7 +453,7 @@ class Text(Expression):
 					eprint("target:", expr.__class__.__name__, ansi.green(f"'{expr}'"))
 					self.cursor = None
 					# expr.cursor = ScreenOffset(0, 0)  # start of the text field
-					expr.cursor = ScreenOffset(0, expr.width(root, rparent, parent))  # end of the text field
+					expr.cursor = ScreenOffset(0, len(expr.text))  # end of the text field
 					break
 			else:  # no break happened before
 				eprint(ansi.red("WARNING:"), "ran out of targets (DOWN)")
@@ -616,7 +612,7 @@ class Row(Expression):
 			for idx, (a, b) in enumerate(zip(output, output[1:])):
 				if isinstance(a, Text) and isinstance(b, Text):
 					if b.cursor:
-						a.cursor = ScreenOffset(0, a.width(root=self, rparent=self, parent=None)).right(b.cursor.col)
+						a.cursor = ScreenOffset(0, len(a.text)).right(b.cursor.col)
 					a.text = f"{a.text}{b.text}"
 					output.pop(idx + 1)
 					break
