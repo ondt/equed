@@ -14,6 +14,7 @@ def run(code: str) -> str:
 		yield stdout
 		sys.stdout = old
 	
+	
 	with wrapper() as s:
 		try:
 			compiled = compile(code, "<string>", "single", dont_inherit=True)
@@ -21,4 +22,4 @@ def run(code: str) -> str:
 		except Exception as e:
 			print(str(e))
 	
-	return s.getvalue()
+	return str(s.getvalue())
