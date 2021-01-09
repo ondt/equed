@@ -1,17 +1,11 @@
-# NAME
-`visual-python` - Visual REPL for Python (2D formula renderer and editor with syntax highlighting) (to be used
- together with sympy, etc)
+# EquEd - Equation Editor
 
-
-
-# DESCRIPTION
-`visual-python` is intended to be an universal terminal (text-based) formula editing tool. It generates 
-`sympy`-compatible code ready to be `eval()`uated. 
-
-
+`equed` - WYSIWYG math editor for terminal with syntax highlighting.
 
 # FEATURES
+
 Status: **proof of concept (the editing works!)**
+
 - [x] baselines
 - [x] syntax highlighting
 - [x] code execution
