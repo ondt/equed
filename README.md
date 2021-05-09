@@ -1,6 +1,13 @@
 # EquEd - Equation Editor
-
 `equed` - WYSIWYG math editor for terminal with syntax highlighting.
+
+<div align="center" style="display:inline;">
+  <img src="https://user-images.githubusercontent.com/20520951/117576686-16b7a480-b0e7-11eb-8743-07606b9c377e.gif" width="49%">
+  <img src="https://user-images.githubusercontent.com/20520951/117576620-dce69e00-b0e6-11eb-90f9-892009544b57.gif" width="49%">
+</div>
+
+
+
 
 # FEATURES
 
